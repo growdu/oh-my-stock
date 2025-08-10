@@ -115,6 +115,7 @@ def get_company_info(symbol):
 
     # 缓存没命中，从网络请求
     try:
+        time.sleep(0.2)  # 防止请求过快被封
         info = ak.stock_individual_info_em(symbol)
     except Exception as e:
         print(f"获取公司信息失败: {symbol}, {e}")
@@ -209,6 +210,7 @@ def main():
 
         industry = industry_map.get(symbol, None)
         try:
+            time.sleep(0.2)  # 防止请求过快被封
             df = ak.stock_hsgt_individual_em(symbol=symbol)
             if df is None:
                 is_hs = False
@@ -219,20 +221,27 @@ def main():
             is_hs = False
 
         # 获取详细公司信息
-        info_dict = get_company_info(symbol)    
-        full_name =  info_dict['股票简称']
-        listing_date = info_dict['上市时间']
-        status = is_listed(listing_date)
-        outstanding_shares = parse_decimal(info_dict['流通股'])
-        total_shares = parse_decimal(info_dict['总股本'])
-
+        try:
+            info_dict = get_company_info(symbol)    
+            full_name =  info_dict['股票简称']
+            listing_date = info_dict['上市时间']
+            status = is_listed(listing_date)
+            outstanding_shares = parse_decimal(info_dict['流通股'])
+            total_shares = parse_decimal(info_dict['总股本'])
+        except:
+            full_name =  ""
+            listing_date = ""
+            status = False
+            outstanding_shares = 0
+            total_shares = 0
+            
         # 处理 listing_date 字符串转日期
         if listing_date:
             try:
                 listing_date = datetime.strptime(str(listing_date), "%Y%m%d").date()
                 #listing_date = datetime.strptime(listing_date, "%Y%m%d").strftime("%Y-%m-%d")
             except Exception as e:
-                print(f"上市时间异常：{e}")
+                #print(f"上市时间异常：{e}")
                 listing_date = None
         else:
             listing_date = None
@@ -270,7 +279,6 @@ def main():
         if idx % 20 == 0:
             session.commit()  # 每20条提交一次，防止内存过大
             print(f"已处理 {idx+1} 条股票数据")
-        time.sleep(0.2)  # 防止请求过快被封
 
     session.commit()
     session.close()
