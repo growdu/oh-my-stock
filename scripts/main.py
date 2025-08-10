@@ -98,6 +98,59 @@ def normalize_sz_df(df):
     df["公司全称"] = None  # 深交所没有公司全称，补空列
     return df[["代码", "简称", "公司全称", "上市日期"]]
 
+def get_company_info(symbol):
+    filepath = os.path.join(CACHE_DIR, "company_info.txt")
+    # 先从缓存读
+    if os.path.exists(filepath):
+        df_cache = pd.read_csv(filepath, dtype=str)
+        cached_row = df_cache[df_cache['symbol'] == symbol]
+        if not cached_row.empty:
+            row = cached_row.iloc[0]
+            return {
+                '股票简称': row.get('股票简称'),
+                '上市时间': row.get('上市时间'),
+                '流通股': row.get('流通股'),
+                '总股本': row.get('总股本'),
+            }
+
+    # 缓存没命中，从网络请求
+    try:
+        info = ak.stock_individual_info_em(symbol)
+    except Exception as e:
+        print(f"获取公司信息失败: {symbol}, {e}")
+        return None
+
+    if info is None or info.empty:
+        return None
+
+    info_dict = dict(zip(info['item'], info['value']))
+
+    # 组装需要字段
+    result = {
+        'symbol': symbol,
+        '股票简称': info_dict.get('股票简称'),
+        '上市时间': info_dict.get('上市时间'),
+        '流通股': info_dict.get('流通股'),
+        '总股本': info_dict.get('总股本'),
+    }
+
+    # 写入缓存
+    if os.path.exists(filepath):
+        df_cache = pd.read_csv(filepath, dtype=str)
+        if symbol in df_cache['symbol'].values:
+            # 更新已有行
+            df_cache.loc[df_cache['symbol'] == symbol, ['股票简称', '上市时间', '流通股', '总股本']] = \
+                [result['股票简称'], result['上市时间'], result['流通股'], result['总股本']]
+        else:
+            # 新增行
+            df_cache = pd.concat([df_cache, pd.DataFrame([result])], ignore_index=True)
+    else:
+        df_cache = pd.DataFrame([result])
+
+    df_cache.to_csv(filepath, index=False, encoding='utf-8-sig',quoting=1)
+
+    return result
+
 def main():
     # 连接 PostgreSQL，改成你自己的连接串
     engine = create_engine("postgresql+psycopg2://postgres:double+2=4@192.168.3.99:54322/a_stock")
@@ -162,16 +215,11 @@ def main():
             else:
                 is_hs = not df.empty
         except Exception as e:
-            print(f"获取沪深港通持股异常：{e}")
+            #print(f"获取沪深港通持股异常：{e}")
             is_hs = False
 
         # 获取详细公司信息
-        try:
-            info = ak.stock_individual_info_em(symbol)
-        except Exception as e:
-            print(f"获取公司信息失败: {symbol}, {e}")
-            info = {}
-        info_dict = dict(zip(info['item'], info['value']))
+        info_dict = get_company_info(symbol)    
         full_name =  info_dict['股票简称']
         listing_date = info_dict['上市时间']
         status = is_listed(listing_date)
