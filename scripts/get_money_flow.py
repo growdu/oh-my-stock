@@ -7,6 +7,19 @@ from datetime import datetime, timedelta
 import time
 
 from sqlalchemy import UniqueConstraint
+import os
+import requests
+
+os.environ["HTTP_PROXY"] = "http://127.0.0.1:7078"
+os.environ["HTTPS_PROXY"] = "http://127.0.0.1:7078"
+
+ak.session = requests.Session()
+ak.session.headers.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/120.0.0.0 Safari/537.36",
+    "Accept-Language": "zh-CN,zh;q=0.9"
+})
 
 Base = declarative_base()
 
@@ -60,7 +73,7 @@ def fetch_money_flow(symbol):
 def main():
     db_url = read_db_url()
     engine = get_db_engine(db_url)
-    Base.metadata.create_all(engine)  # 创建表结构（如果不存在）
+    # Base.metadata.create_all(engine)  # 创建表结构（如果不存在）
 
     session = get_session(engine)
     symbols = get_all_symbols(session)
@@ -75,10 +88,10 @@ def main():
 
         df['trade_date'] = pd.to_datetime(df['日期'], errors='coerce').dt.date
         max_date = df['trade_date'].max()
-        min_date = max_date - timedelta(days=30)
+        min_date = max_date - timedelta(days=7) # 取7天前的数据
 
         df = df[(df['trade_date'] >= min_date) & (df['trade_date'] <= max_date)]
-        recent_dates = sorted(df['trade_date'].unique())[-15:]
+        recent_dates = sorted(df['trade_date'].unique())[-3:] # 取最近3天的数据
         df = df[df['trade_date'].isin(recent_dates)]
 
         new_records = []
