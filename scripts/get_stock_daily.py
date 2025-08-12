@@ -147,24 +147,15 @@ def main(is_init=False):
     trade_dates = get_trade_dates()
     print(trade_dates)
 
-    if is_init:
-        # 初始化拉取最近15个交易日
-        last_15_days = trade_dates[-15:]
-        start_date = last_15_days[0]
-        end_date = last_15_days[-1]
-        print(f"初始化拉取日期: {start_date} ~ {end_date}")
+    # 初始化拉取最近15个交易日
+    #last_15_days = trade_dates[-15:]
+    last_15_days = trade_dates[-3:]
+    start_date = last_15_days[0]
+    end_date = last_15_days[-1]
+    print(f"初始化拉取日期: {start_date} ~ {end_date}")
 
-        for symbol in stock_info_df['symbol']:
-            fetch_and_store_stock_daily(session, symbol, start_date=start_date, end_date=end_date)
-    else:
-        now = datetime.now()
-        if not is_trade_day(now, trade_dates):
-            print(f"{now.strftime('%Y-%m-%d')} 非交易日，不更新数据")
-            return
-
-        today_str = now.strftime('%Y%m%d')
-        for symbol in stock_info_df['symbol']:
-            fetch_and_store_stock_daily(session, symbol, start_date=today_str, end_date=today_str)
+    for symbol in stock_info_df['symbol']:
+        fetch_and_store_stock_daily(session, symbol, start_date=start_date, end_date=end_date)
 
 if __name__ == "__main__":
     # 初始化时传 True，日常更新传 False
