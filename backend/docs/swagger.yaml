@@ -1,0 +1,366 @@
+basePath: /api/v1
+definitions:
+  models.StockBasicInfo:
+    properties:
+      area:
+        example: 上海
+        type: string
+      created_at:
+        example: "2025-08-13T10:00:00+08:00"
+        type: string
+      full_name:
+        example: 上海浦东发展银行股份有限公司
+        type: string
+      id:
+        example: 1
+        type: integer
+      industry:
+        example: 银行
+        type: string
+      is_hs:
+        example: true
+        type: boolean
+      listing_date:
+        example: "1999-11-10"
+        type: string
+      market:
+        example: 主板
+        type: string
+      name:
+        example: 浦发银行
+        type: string
+      outstanding_shares:
+        example: 2930026
+        type: number
+      status:
+        example: 上市
+        type: string
+      symbol:
+        example: "600000"
+        type: string
+      total_shares:
+        example: 2930026
+        type: number
+      updated_at:
+        example: "2025-08-13T10:00:00+08:00"
+        type: string
+    type: object
+  models.StockDailyData:
+    properties:
+      adj_close:
+        description: 后复权收盘价
+        type: number
+      amplitude:
+        description: 振幅(%)
+        type: number
+      change_amount:
+        description: 涨跌额
+        type: number
+      change_percent:
+        description: 涨跌幅(%)
+        type: number
+      close:
+        description: 收盘价
+        type: number
+      created_at:
+        description: 创建时间
+        type: string
+      high:
+        description: 最高价
+        type: number
+      id:
+        type: integer
+      low:
+        description: 最低价
+        type: number
+      open:
+        description: 开盘价
+        type: number
+      pb:
+        description: 市净率
+        type: number
+      pe_ttm:
+        description: 市盈率(TTM)
+        type: number
+      symbol:
+        description: 股票代码
+        type: string
+      trade_date:
+        description: 交易日期
+        type: string
+      turnover:
+        description: 成交额(元)
+        type: number
+      turnover_rate:
+        description: 换手率(%)
+        type: number
+      volume:
+        description: 成交量(股)
+        type: integer
+    type: object
+host: 192.168.3.99:3003
+info:
+  contact: {}
+  description: 股票基础信息管理 RESTful API
+  title: 股票信息 API
+  version: "1.0"
+paths:
+  /stock-daily-data:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.StockDailyData'
+            type: array
+      summary: 获取全部股票日线数据
+      tags:
+      - 股票日线数据
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 股票日线数据
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.StockDailyData'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.StockDailyData'
+      summary: 新增股票日线数据
+      tags:
+      - 股票日线数据
+  /stock-daily-data/{symbol}:
+    delete:
+      parameters:
+      - description: 股票代码
+        in: path
+        name: symbol
+        required: true
+        type: string
+      - description: 交易日期(YYYY-MM-DD)
+        in: query
+        name: trade_date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Deleted
+          schema:
+            type: string
+      summary: 删除@Tags 股票日线数据
+      tags:
+      - 股票日线数据
+    get:
+      parameters:
+      - description: 股票代码
+        in: path
+        name: symbol
+        required: true
+        type: string
+      - description: 交易日期(YYYY-MM-DD)
+        in: query
+        name: trade_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.StockDailyData'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 根据股票代码和交易日期查询
+      tags:
+      - 股票日线数据
+  /stocks:
+    get:
+      description: 获取所有股票的基础信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.StockBasicInfo'
+            type: array
+      summary: 获取所有股票信息
+      tags:
+      - 股票信息
+    post:
+      consumes:
+      - application/json
+      description: 新增一条股票基础信息
+      parameters:
+      - description: 股票信息
+        in: body
+        name: stock
+        required: true
+        schema:
+          $ref: '#/definitions/models.StockBasicInfo'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.StockBasicInfo'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 创建股票信息
+      tags:
+      - 股票信息
+  /stocks/{id}:
+    delete:
+      description: 根据ID删除股票记录
+      parameters:
+      - description: 股票ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 删除股票信息
+      tags:
+      - 股票信息
+    get:
+      description: 通过股票ID获取详细信息
+      parameters:
+      - description: 股票ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.StockBasicInfo'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 根据ID获取股票信息
+      tags:
+      - 股票信息
+    put:
+      consumes:
+      - application/json
+      description: 根据ID更新股票基础信息
+      parameters:
+      - description: 股票ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 股票信息
+        in: body
+        name: stock
+        required: true
+        schema:
+          $ref: '#/definitions/models.StockBasicInfo'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.StockBasicInfo'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 更新股票信息
+      tags:
+      - 股票信息
+  /stocks/symbol/{symbol}:
+    delete:
+      description: 通过股票代码删除股票基础信息
+      parameters:
+      - description: 股票代码
+        in: path
+        name: symbol
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 根据股票代码删除股票信息
+      tags:
+      - 股票信息
+    get:
+      description: 通过股票代码获取股票基础信息
+      parameters:
+      - description: 股票代码
+        in: path
+        name: symbol
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.StockBasicInfo'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 根据股票代码获取股票信息
+      tags:
+      - 股票信息
+swagger: "2.0"
