@@ -144,6 +144,672 @@ const docTemplate = `{
                 }
             }
         },
+        "/stock-indicators": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票指标"
+                ],
+                "summary": "获取全部指标",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.StockIndicator"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票指标"
+                ],
+                "summary": "创建指标记录",
+                "parameters": [
+                    {
+                        "description": "股票指标数据",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.StockIndicator"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.StockIndicator"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/stock-indicators/symbol/{symbol}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票指标"
+                ],
+                "summary": "根据symbol和calc_date获取指标",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "股票代码",
+                        "name": "symbol",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "计算日期(YYYY-MM-DD)",
+                        "name": "calc_date",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.StockIndicator"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/stock-indicators/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票指标"
+                ],
+                "summary": "根据ID获取指标",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "指标ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.StockIndicator"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票指标"
+                ],
+                "summary": "更新指标",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "指标ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "股票指标数据",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.StockIndicator"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.StockIndicator"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "股票指标"
+                ],
+                "summary": "删除指标",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "指标ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/stock-money-flow": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票资金流"
+                ],
+                "summary": "获取全部资金流数据",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.StockMoneyFlow"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票资金流"
+                ],
+                "summary": "创建资金流数据",
+                "parameters": [
+                    {
+                        "description": "股票资金流数据",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.StockMoneyFlow"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.StockMoneyFlow"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/stock-money-flow-all": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票资金流(ALL)"
+                ],
+                "summary": "获取全部资金流数据",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.StockMoneyFlowAll"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票资金流(ALL)"
+                ],
+                "summary": "创建资金流数据",
+                "parameters": [
+                    {
+                        "description": "股票资金流数据",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.StockMoneyFlowAll"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.StockMoneyFlowAll"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/stock-money-flow-all/symbol/{symbol}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票资金流(ALL)"
+                ],
+                "summary": "根据symbol和trade_date获取资金流数据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "股票代码",
+                        "name": "symbol",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "交易日期(YYYY-MM-DD)",
+                        "name": "trade_date",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "时间跨度(0,3,5,10)",
+                        "name": "time_span",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.StockMoneyFlowAll"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/stock-money-flow-all/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票资金流(ALL)"
+                ],
+                "summary": "根据ID获取资金流数据",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.StockMoneyFlowAll"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票资金流(ALL)"
+                ],
+                "summary": "更新资金流数据",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "股票资金流数据",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.StockMoneyFlowAll"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.StockMoneyFlowAll"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "股票资金流(ALL)"
+                ],
+                "summary": "删除资金流数据",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/stock-money-flow/symbol/{symbol}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票资金流"
+                ],
+                "summary": "根据symbol和trade_date获取资金流数据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "股票代码",
+                        "name": "symbol",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "交易日期(YYYY-MM-DD)",
+                        "name": "trade_date",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.StockMoneyFlow"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/stock-money-flow/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票资金流"
+                ],
+                "summary": "根据ID获取资金流数据",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.StockMoneyFlow"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票资金流"
+                ],
+                "summary": "更新资金流数据",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "股票资金流数据",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.StockMoneyFlow"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.StockMoneyFlow"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "股票资金流"
+                ],
+                "summary": "删除资金流数据",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/stocks": {
             "get": {
                 "description": "获取所有股票的基础信息",
@@ -203,6 +869,53 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/stocks/history": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票综合信息"
+                ],
+                "summary": "获取股票最近 N 天历史数据（含技术指标和资金流）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "股票代码",
+                        "name": "symbol",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "最近几天，默认7天",
+                        "name": "days",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
@@ -539,6 +1252,159 @@ const docTemplate = `{
                 "volume": {
                     "description": "成交量(股)",
                     "type": "integer"
+                }
+            }
+        },
+        "models.StockIndicator": {
+            "type": "object",
+            "properties": {
+                "boll_lower": {
+                    "type": "number"
+                },
+                "boll_mid": {
+                    "type": "number"
+                },
+                "boll_upper": {
+                    "type": "number"
+                },
+                "calc_date": {
+                    "description": "计算日期",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "d": {
+                    "type": "number"
+                },
+                "dea": {
+                    "type": "number"
+                },
+                "dif": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "j": {
+                    "type": "number"
+                },
+                "k": {
+                    "type": "number"
+                },
+                "ma10": {
+                    "type": "number"
+                },
+                "ma20": {
+                    "type": "number"
+                },
+                "ma5": {
+                    "type": "number"
+                },
+                "ma60": {
+                    "type": "number"
+                },
+                "macd": {
+                    "type": "number"
+                },
+                "rsi12": {
+                    "type": "number"
+                },
+                "rsi24": {
+                    "type": "number"
+                },
+                "rsi6": {
+                    "type": "number"
+                },
+                "symbol": {
+                    "description": "股票代码",
+                    "type": "string"
+                }
+            }
+        },
+        "models.StockMoneyFlow": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "large_order_ratio": {
+                    "description": "大单成交占比(%)",
+                    "type": "number"
+                },
+                "main_net": {
+                    "description": "主力净流入",
+                    "type": "number"
+                },
+                "medium_order_ratio": {
+                    "description": "中单成交占比(%)",
+                    "type": "number"
+                },
+                "retail_net": {
+                    "description": "散户净流入",
+                    "type": "number"
+                },
+                "small_order_ratio": {
+                    "description": "小单成交占比(%)",
+                    "type": "number"
+                },
+                "symbol": {
+                    "description": "股票代码",
+                    "type": "string"
+                },
+                "trade_date": {
+                    "description": "交易日期",
+                    "type": "string"
+                }
+            }
+        },
+        "models.StockMoneyFlowAll": {
+            "type": "object",
+            "properties": {
+                "change_percent": {
+                    "type": "number"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "inflow_amount": {
+                    "type": "number"
+                },
+                "latest_price": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "net_amount": {
+                    "type": "number"
+                },
+                "outflow_amount": {
+                    "type": "number"
+                },
+                "serial_number": {
+                    "type": "integer"
+                },
+                "symbol": {
+                    "type": "string"
+                },
+                "time_span": {
+                    "type": "integer"
+                },
+                "trade_date": {
+                    "type": "string"
+                },
+                "turnover": {
+                    "type": "number"
+                },
+                "turnover_rate": {
+                    "type": "number"
                 }
             }
         }

@@ -98,6 +98,110 @@ definitions:
         description: 成交量(股)
         type: integer
     type: object
+  models.StockIndicator:
+    properties:
+      boll_lower:
+        type: number
+      boll_mid:
+        type: number
+      boll_upper:
+        type: number
+      calc_date:
+        description: 计算日期
+        type: string
+      created_at:
+        type: string
+      d:
+        type: number
+      dea:
+        type: number
+      dif:
+        type: number
+      id:
+        type: integer
+      j:
+        type: number
+      k:
+        type: number
+      ma5:
+        type: number
+      ma10:
+        type: number
+      ma20:
+        type: number
+      ma60:
+        type: number
+      macd:
+        type: number
+      rsi6:
+        type: number
+      rsi12:
+        type: number
+      rsi24:
+        type: number
+      symbol:
+        description: 股票代码
+        type: string
+    type: object
+  models.StockMoneyFlow:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      large_order_ratio:
+        description: 大单成交占比(%)
+        type: number
+      main_net:
+        description: 主力净流入
+        type: number
+      medium_order_ratio:
+        description: 中单成交占比(%)
+        type: number
+      retail_net:
+        description: 散户净流入
+        type: number
+      small_order_ratio:
+        description: 小单成交占比(%)
+        type: number
+      symbol:
+        description: 股票代码
+        type: string
+      trade_date:
+        description: 交易日期
+        type: string
+    type: object
+  models.StockMoneyFlowAll:
+    properties:
+      change_percent:
+        type: number
+      created_at:
+        type: string
+      id:
+        type: integer
+      inflow_amount:
+        type: number
+      latest_price:
+        type: number
+      name:
+        type: string
+      net_amount:
+        type: number
+      outflow_amount:
+        type: number
+      serial_number:
+        type: integer
+      symbol:
+        type: string
+      time_span:
+        type: integer
+      trade_date:
+        type: string
+      turnover:
+        type: number
+      turnover_rate:
+        type: number
+    type: object
 host: 192.168.3.99:3003
 info:
   contact: {}
@@ -189,6 +293,441 @@ paths:
       summary: 根据股票代码和交易日期查询
       tags:
       - 股票日线数据
+  /stock-indicators:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.StockIndicator'
+            type: array
+      summary: 获取全部指标
+      tags:
+      - 股票指标
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 股票指标数据
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.StockIndicator'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.StockIndicator'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: 创建指标记录
+      tags:
+      - 股票指标
+  /stock-indicators/{id}:
+    delete:
+      parameters:
+      - description: 指标ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 删除指标
+      tags:
+      - 股票指标
+    get:
+      parameters:
+      - description: 指标ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.StockIndicator'
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 根据ID获取指标
+      tags:
+      - 股票指标
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 指标ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 股票指标数据
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.StockIndicator'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.StockIndicator'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 更新指标
+      tags:
+      - 股票指标
+  /stock-indicators/symbol/{symbol}:
+    get:
+      parameters:
+      - description: 股票代码
+        in: path
+        name: symbol
+        required: true
+        type: string
+      - description: 计算日期(YYYY-MM-DD)
+        in: query
+        name: calc_date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.StockIndicator'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 根据symbol和calc_date获取指标
+      tags:
+      - 股票指标
+  /stock-money-flow:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.StockMoneyFlow'
+            type: array
+      summary: 获取全部资金流数据
+      tags:
+      - 股票资金流
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 股票资金流数据
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.StockMoneyFlow'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.StockMoneyFlow'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: 创建资金流数据
+      tags:
+      - 股票资金流
+  /stock-money-flow-all:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.StockMoneyFlowAll'
+            type: array
+      summary: 获取全部资金流数据
+      tags:
+      - 股票资金流(ALL)
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 股票资金流数据
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.StockMoneyFlowAll'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.StockMoneyFlowAll'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: 创建资金流数据
+      tags:
+      - 股票资金流(ALL)
+  /stock-money-flow-all/{id}:
+    delete:
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 删除资金流数据
+      tags:
+      - 股票资金流(ALL)
+    get:
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.StockMoneyFlowAll'
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 根据ID获取资金流数据
+      tags:
+      - 股票资金流(ALL)
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 股票资金流数据
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.StockMoneyFlowAll'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.StockMoneyFlowAll'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 更新资金流数据
+      tags:
+      - 股票资金流(ALL)
+  /stock-money-flow-all/symbol/{symbol}:
+    get:
+      parameters:
+      - description: 股票代码
+        in: path
+        name: symbol
+        required: true
+        type: string
+      - description: 交易日期(YYYY-MM-DD)
+        in: query
+        name: trade_date
+        required: true
+        type: string
+      - description: 时间跨度(0,3,5,10)
+        in: query
+        name: time_span
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.StockMoneyFlowAll'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 根据symbol和trade_date获取资金流数据
+      tags:
+      - 股票资金流(ALL)
+  /stock-money-flow/{id}:
+    delete:
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 删除资金流数据
+      tags:
+      - 股票资金流
+    get:
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.StockMoneyFlow'
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 根据ID获取资金流数据
+      tags:
+      - 股票资金流
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 股票资金流数据
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.StockMoneyFlow'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.StockMoneyFlow'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 更新资金流数据
+      tags:
+      - 股票资金流
+  /stock-money-flow/symbol/{symbol}:
+    get:
+      parameters:
+      - description: 股票代码
+        in: path
+        name: symbol
+        required: true
+        type: string
+      - description: 交易日期(YYYY-MM-DD)
+        in: query
+        name: trade_date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.StockMoneyFlow'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 根据symbol和trade_date获取资金流数据
+      tags:
+      - 股票资金流
   /stocks:
     get:
       description: 获取所有股票的基础信息
@@ -316,6 +855,37 @@ paths:
       summary: 更新股票信息
       tags:
       - 股票信息
+  /stocks/history:
+    get:
+      parameters:
+      - description: 股票代码
+        in: query
+        name: symbol
+        required: true
+        type: string
+      - description: 最近几天，默认7天
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 获取股票最近 N 天历史数据（含技术指标和资金流）
+      tags:
+      - 股票综合信息
   /stocks/symbol/{symbol}:
     delete:
       description: 通过股票代码删除股票基础信息
