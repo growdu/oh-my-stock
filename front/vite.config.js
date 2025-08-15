@@ -9,9 +9,10 @@ export default defineConfig({
     port: 5713,
     proxy: {
       '/api': {
-        target: 'http://192.168.3.99:3003', // 你的 Gin 后端地址
-        changeOrigin: true
-      }
-    }
+        target: 'http://192.168.3.99:3003/api',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
   },
 })
