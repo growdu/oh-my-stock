@@ -9,6 +9,10 @@ from sqlalchemy.exc import IntegrityError
 import configparser
 import requests
 import time
+import os
+
+os.environ["HTTP_PROXY"] = "http://127.0.0.1:7078"
+os.environ["HTTPS_PROXY"] = "http://127.0.0.1:7078"
 
 # 给 requests 增加默认 headers
 ak.session = requests.Session()
@@ -55,17 +59,12 @@ class StockDailyData(Base):
 # ========== 工具函数 ==========
 
 def get_trade_dates():
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    
     # 获取所有交易日
-    df = ak.tool_trade_date_hist_sina()
-    df["trade_date"] = df["trade_date"].astype(str)
-
-    # 只保留今天及之前的交易日
-    trade_dates = df[df["trade_date"] <= today_str]["trade_date"].tolist()
+    today = datetime.now().date()
+    
 
     # 取最近 30 个交易日
-    last_15_days = trade_dates[-30:]
+    last_15_days = [(today - timedelta(days=i)).strftime("%Y%m%d") for i in range(30, 0, -1)]
     
     return last_15_days
 
@@ -83,20 +82,20 @@ def fetch_and_store_stock_daily(session, symbol, start_date=None, end_date=None)
     existing_dates = get_existing_trade_dates(session, symbol)
     if start_date is None:
         start_date = datetime.now().strftime('%Y%m%d')
-    else:
-        start = datetime.strptime(start_date, "%Y-%m-%d").date()
-        if start in existing_dates:
-            print(symbol + "has imported")
-            return
-        start_date=pd.to_datetime(start_date).strftime('%Y%m%d')
+    # else:
+    #     start = datetime.strptime(start_date, "%Y-%m-%d").date()
+    #     if start in existing_dates:
+    #         print(symbol + "has imported")
+    #         return
+    #     start_date=pd.to_datetime(start_date).strftime('%Y%m%d')
     if end_date is None:
         end_date = datetime.now().strftime('%Y%m%d')
-    else:
-        end_date = pd.to_datetime(end_date).strftime('%Y%m%d')
+    # else:
+    #     end_date = pd.to_datetime(end_date).strftime('%Y%m%d')
 
     try:
         #df = ak.stock_zh_a_daily(symbol=symbol, start_date=start_date, end_date=end_date, adjust="qfq")
-        time.sleep(1)
+        time.sleep(0.2)
         df = ak.stock_zh_a_hist(symbol=symbol, period="daily", adjust="qfq", start_date=start_date,timeout=10)
     except Exception as e:
         print(f"获取{symbol}日线数据失败: {e}")
@@ -137,7 +136,7 @@ def fetch_and_store_stock_daily(session, symbol, start_date=None, end_date=None)
         session.rollback()
         print(f"{symbol} 部分数据已存在，跳过重复插入")
 
-def main(is_init=False):
+def main():
     engine = create_engine(DATABASE_URL)
     Session = sessionmaker(bind=engine)
     session = Session()
@@ -145,7 +144,7 @@ def main(is_init=False):
     # 读所有股票代码
     stock_info_df = pd.read_sql("SELECT symbol FROM stock_basic_info", engine)
     trade_dates = get_trade_dates()
-    print(trade_dates)
+    #print(trade_dates)
 
     # 初始化拉取最近15个交易日
     #last_15_days = trade_dates[-15:]
@@ -159,4 +158,4 @@ def main(is_init=False):
 
 if __name__ == "__main__":
     # 初始化时传 True，日常更新传 False
-    main(is_init=True)
+    main()
