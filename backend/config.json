@@ -1,0 +1,10 @@
+{
+  "database": {
+    "user": "postgres",
+    "pass": "double+",
+    "host": "192.168.3.99",
+    "port":"54322",
+    "name": "a_stock"
+  }
+}
+
