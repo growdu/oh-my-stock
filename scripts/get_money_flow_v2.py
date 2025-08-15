@@ -162,13 +162,20 @@ def import_timespan(session,time_span: TimeSpan):
             created_at=datetime.now()
         )
         records.append(record)
+        
+    # 入库（去重处理）
+    for rec in records:
+        exists = session.query(StockMoneyFlow).filter(
+            symbol=str(rec.symbol),
+            trade_date=rec.trade_date,
+            time_span=rec.time_span
+        ).first()
+        if not exists:
+            print(f"{rec.symbol} will import to  money flow")
+            session.add(rec)
 
-    if records:
-        session.add_all(records)
-        session.commit()
-        print(f"{time_span} 插入 {len(records)} 条资金流数据")
-    else:
-        print(f"{time_span} 没有新数据需要插入")
+    session.commit()
+    session.close()
 
 
 def main():

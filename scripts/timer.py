@@ -9,7 +9,7 @@ import schedule
 IMMEDIATE_RUN = 1  # 设为 1 立即执行一次，0 仅定时执行
 SCRIPTS = [
     r"F:\pythonwork\oh-my-stock\scripts\get_stock_daily.py",
-    r"F:\pythonwork\oh-my-stock\scripts\get_money_flow.py",
+    r"F:\pythonwork\oh-my-stock\scripts\get_money_flow_v2.py",
 ]
 # =================
 
