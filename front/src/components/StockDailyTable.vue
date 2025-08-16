@@ -3,12 +3,15 @@
     <!-- Search + Actions -->
     <el-card shadow="never" class="mb-4">
       <div class="flex flex-wrap items-center gap-3">
-        <el-input
+        <!-- ✅ 改为自动补全 -->
+        <el-autocomplete
           v-model.trim="querySymbol"
-          placeholder="输入股票代码，例如 300687"
-          style="max-width: 220px"
-          @keyup.enter.native="fetchStock"
+          :fetch-suggestions="querySearch"
+          placeholder="输入股票代码或名称"
+          style="max-width: 240px"
           clearable
+          @select="handleSelect"
+          @keyup.enter.native="fetchStock"
         />
         <el-button type="primary" :loading="loading" @click="fetchStock">查询</el-button>
         <el-select v-model="range" placeholder="区间" style="width: 140px">
@@ -35,14 +38,11 @@
     <!-- Charts -->
     <el-card shadow="never">
       <div class="grid gap-6">
-        <!-- K-line + Volume -->
-        <div ref="klineRef" style="width: 100%; height: 460px" />
-        <!-- Money Flow -->
+        <div ref="klineRef" style="width: 100%; height: 480px" />
         <div v-if="showMoneyFlow" ref="moneyRef" style="width: 100%; height: 320px" />
       </div>
     </el-card>
 
-    <!-- Empty State -->
     <el-empty v-if="!loading && (!rows || rows.length === 0)" description="暂无数据" class="mt-8" />
   </div>
 </template>
@@ -51,38 +51,62 @@
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import axios from 'axios'
+import debounce from 'lodash/debounce'   // ✅ 引入lodash.debounce
 
-// ===== Config =====
-// 修改为你的后端地址（可用 .env.* 配置 VITE_API_BASE）
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://192.168.3.99:3003'
 
-// ===== State =====
-const querySymbol = ref('300687')
+const querySymbol = ref('000001')
 const loading = ref(false)
-const range = ref(120) // 默认近 120 日
+const range = ref(120)
 const showMoneyFlow = ref(true)
 
-const meta = ref(null) // { name, symbol, market, industry, listing_date }
-const rows = ref([])   // 原始 daily_data
+const meta = ref(null)
+const rows = ref([])
 
-// ECharts refs
 const klineRef = ref(null)
 const moneyRef = ref(null)
 let kChart = null
 let mChart = null
 
-// ===== Helpers =====
+/* ===========================
+   ✅ 自动补全相关
+=========================== */
+// const querySearch = async (queryString, cb) => {
+//   if (!queryString) {
+//     cb([])
+//     return
+//   }
+//   try {
+//     const { data } = await axios.get(`${API_BASE}/api/v1/stocks/search?q=${encodeURIComponent(queryString)}`)
+//     cb(
+//       data.map(item => ({
+//         value: `${item.symbol} ${item.name}`, // 显示效果
+//         symbol: item.symbol,
+//         name: item.name
+//       }))
+//     )
+//   } catch (e) {
+//     console.error(e)
+//     cb([])
+//   }
+// }
+
+// const handleSelect = (item) => {
+//   querySymbol.value = item.symbol   // ✅ 只用代码发请求
+//   fetchStock()
+// }
+
+/* ===========================
+   工具函数
+=========================== */
 function formatDate(iso) {
   if (!iso) return '-'
   const d = new Date(iso)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${dd}`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function toFixed(n, k = 2) {
-  if (n === null || n === undefined || Number.isNaN(Number(n))) return null
+  if (n == null || Number.isNaN(Number(n))) return null
   return Number(n).toFixed(k)
 }
 
@@ -97,10 +121,8 @@ function ma(arr, day) {
   return out
 }
 
-// 处理数据：排序、裁剪、计算 MA
 const processed = computed(() => {
   if (!rows.value || rows.value.length === 0) return null
-  // 按日期升序
   const sorted = [...rows.value].sort((a, b) => new Date(a.trade_date) - new Date(b.trade_date))
   const clipped = range.value && range.value > 0 ? sorted.slice(-range.value) : sorted
 
@@ -110,8 +132,6 @@ const processed = computed(() => {
   const lows = clipped.map(r => Number(r.low))
   const highs = clipped.map(r => Number(r.high))
   const vols = clipped.map(r => Number(r.volume || 0))
-  const changePct = clipped.map(r => r.change_percent)
-
   const candlesticks = clipped.map(r => [Number(r.open), Number(r.close), Number(r.low), Number(r.high)])
 
   const ma5 = ma(closes, 5)
@@ -119,14 +139,15 @@ const processed = computed(() => {
   const ma20 = ma(closes, 20)
   const ma60 = ma(closes, 60)
 
-  const inAmt = clipped.map(r => (r.in_amount == null ? null : Number(r.in_amount)))
-  const outAmt = clipped.map(r => (r.out_amount == null ? null : Number(r.out_amount)))
-  const netAmt = clipped.map((_, i) => (inAmt[i] == null || outAmt[i] == null) ? null : Number((inAmt[i] - outAmt[i]).toFixed(0)))
+  // ✅ 改成 "万"
+  const inAmt = clipped.map(r => (r.in_amount == null ? null : Math.round(Number(r.in_amount) / 1e4)))
+  const outAmt = clipped.map(r => (r.out_amount == null ? null : Math.round(Number(r.out_amount) / 1e4)))
+  const netAmt = clipped.map((_, i) => (inAmt[i] == null || outAmt[i] == null) ? null : inAmt[i] - outAmt[i])
 
-  return { dates, opens, closes, lows, highs, vols, candlesticks, ma5, ma10, ma20, ma60, changePct, inAmt, outAmt, netAmt }
+  return { dates, opens, closes, lows, highs, vols, candlesticks, ma5, ma10, ma20, ma60, inAmt, outAmt, netAmt }
 })
 
-// ===== Charts =====
+
 function renderKline() {
   if (!klineRef.value || !processed.value) return
   if (!kChart) kChart = echarts.init(klineRef.value)
@@ -134,19 +155,29 @@ function renderKline() {
 
   const option = {
     animation: false,
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'cross' },
-      valueFormatter: (v) => (v == null ? '-' : String(v))
-    },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
     axisPointer: { link: [{ xAxisIndex: 'all' }] },
     grid: [
-      { left: 40, right: 10, top: 20, height: 260 },
-      { left: 40, right: 10, top: 300, height: 100 }
+      { left: 60, right: 10, top: 20, height: 260 },   // ← grid.left 加宽，保证坐标轴文字有空间
+      { left: 60, right: 10, top: 330, height: 100 }
     ],
     xAxis: [
-      { type: 'category', data: p.dates, boundaryGap: false, axisLine: { onZero: false }, splitLine: { show: false }, min: 'dataMin', max: 'dataMax' },
-      { type: 'category', data: p.dates, gridIndex: 1, boundaryGap: false, axisLine: { onZero: false }, splitLine: { show: false }, axisLabel: { show: false }, min: 'dataMin', max: 'dataMax' }
+      {
+        type: 'category',
+        data: p.dates,
+        boundaryGap: true,
+        min: -0.5,                                // ← 往左留半个柱子
+        max: p.dates.length - 0.5                 // ← 往右留半个柱子
+      },
+      {
+        type: 'category',
+        data: p.dates,
+        gridIndex: 1,
+        boundaryGap: true,
+        axisLabel: { show: false },
+        min: -0.5,
+        max: p.dates.length - 0.5
+      }
     ],
     yAxis: [
       { scale: true, splitArea: { show: true } },
@@ -154,28 +185,21 @@ function renderKline() {
     ],
     dataZoom: [
       { type: 'inside', xAxisIndex: [0, 1], start: 20, end: 100 },
-      { type: 'slider', xAxisIndex: [0, 1], top: 420 }
+      { type: 'slider', xAxisIndex: [0, 1], top: 440 }
     ],
     series: [
-      {
-        name: '日K',
-        type: 'candlestick',
-        xAxisIndex: 0, yAxisIndex: 0,
-        data: p.candlesticks,
-        itemStyle: { color: '#ef5350', color0: '#26a69a', borderColor: '#ef5350', borderColor0: '#26a69a' }
-      },
+      { name: '日K', type: 'candlestick', data: p.candlesticks },
       { name: 'MA5', type: 'line', data: p.ma5, showSymbol: false, smooth: true },
       { name: 'MA10', type: 'line', data: p.ma10, showSymbol: false, smooth: true },
       { name: 'MA20', type: 'line', data: p.ma20, showSymbol: false, smooth: true },
       { name: 'MA60', type: 'line', data: p.ma60, showSymbol: false, smooth: true },
-      {
-        name: '成交量', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: p.vols,
-        itemStyle: {
-          color: (params) => {
-            const i = params.dataIndex
-            return p.closes[i] >= p.opens[i] ? '#ef5350' : '#26a69a'
-          }
-        }
+      { 
+        name: '成交量', 
+        type: 'bar', 
+        xAxisIndex: 1, 
+        yAxisIndex: 1, 
+        data: p.vols, 
+        barCategoryGap: '30%'   // ← 让柱子和边缘、坐标轴有间隔
       }
     ]
   }
@@ -189,20 +213,31 @@ function renderMoneyFlow() {
 
   const option = {
     animation: false,
-    tooltip: { trigger: 'axis', valueFormatter: v => (v == null ? '-' : String(v)) },
+    tooltip: { 
+      trigger: 'axis', 
+      valueFormatter: v => (v == null ? '-' : v + '万')   // ✅ 单位改为“万”
+    },
     legend: { data: ['主力流入', '主力流出', '净额'] },
-    grid: { left: 40, right: 10, top: 30, bottom: 20 },
-    xAxis: { type: 'category', data: p.dates, boundaryGap: true },
-    yAxis: { type: 'value', name: '金额(元)' },
+    grid: { left: 60, right: 10, top: 30, bottom: 20 },
+    xAxis: { 
+      type: 'category', 
+      data: p.dates, 
+      boundaryGap: true, 
+      min: -0.5, 
+      max: p.dates.length - 0.5 
+    },
+    yAxis: { type: 'value', name: '金额(万)' },   // ✅ 单位改为万
     dataZoom: [ { type: 'inside', start: 20, end: 100 }, { type: 'slider' } ],
     series: [
-      { name: '主力流入', type: 'bar', stack: 'flow', data: p.inAmt },
-      { name: '主力流出', type: 'bar', stack: 'flow', data: p.outAmt },
+      { name: '主力流入', type: 'bar', stack: 'flow', data: p.inAmt, barCategoryGap: '30%' },
+      { name: '主力流出', type: 'bar', stack: 'flow', data: p.outAmt, barCategoryGap: '30%' },
       { name: '净额', type: 'line', showSymbol: false, data: p.netAmt, smooth: true }
     ]
   }
   mChart.setOption(option)
 }
+
+
 
 function resizeAll() {
   kChart && kChart.resize()
@@ -232,20 +267,16 @@ onBeforeUnmount(() => {
   mChart && mChart.dispose()
 })
 
-// ===== API =====
+/* ===========================
+   API 请求
+=========================== */
 async function fetchStock() {
   if (!querySymbol.value) return
   loading.value = true
   try {
     const url = `${API_BASE}/api/v1/stocks/history?symbol=${encodeURIComponent(querySymbol.value)}`
     const { data } = await axios.get(url)
-    meta.value = {
-      name: data.name,
-      symbol: data.symbol,
-      market: data.market,
-      industry: data.industry,
-      listing_date: data.listing_date
-    }
+    meta.value = { name: data.name, symbol: data.symbol, market: data.market, industry: data.industry, listing_date: data.listing_date }
     rows.value = Array.isArray(data.daily_data) ? data.daily_data : []
   } catch (e) {
     console.error(e)
@@ -255,6 +286,40 @@ async function fetchStock() {
   } finally {
     loading.value = false
   }
+}
+
+/* ===========================
+   自动补全 + 防抖
+=========================== */
+// 真正的搜索函数
+const doSearch = async (queryString, cb) => {
+  if (!queryString) {
+    cb([])
+    return
+  }
+  try {
+    const { data } = await axios.get(
+      `${API_BASE}/api/v1/stocks/search?q=${encodeURIComponent(queryString)}`
+    )
+    cb(
+      data.map(item => ({
+        value: `${item.symbol} ${item.name}`,
+        symbol: item.symbol,
+        name: item.name
+      }))
+    )
+  } catch (e) {
+    console.error(e)
+    cb([])
+  }
+}
+
+// ✅ 加入防抖（300ms 内连续输入只请求一次）
+const querySearch = debounce(doSearch, 300)
+
+const handleSelect = (item) => {
+  querySymbol.value = item.symbol
+  fetchStock()
 }
 </script>
 
@@ -271,4 +336,6 @@ async function fetchStock() {
 .opacity-70 { opacity: .7; }
 .text-sm { font-size: .9rem; }
 .mt-8 { margin-top: 2rem; }
+
+
 </style>

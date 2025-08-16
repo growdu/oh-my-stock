@@ -151,15 +151,15 @@ func DeleteStockBySymbol(c *gin.Context) {
 // @Summary 获取股票最近 N 天历史数据（含技术指标和资金流）
 // @Tags 股票综合信息
 // @Produce json
-// @Param symbol query string true "股票代码"
+// @Param symbol query string true "股票代码或股票名称"
 // @Param days query int false "最近几天，默认7天"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {string} string "Bad Request"
 // @Failure 404 {string} string "Not Found"
 // @Router /stocks/history [get]
 func GetStockHistory(c *gin.Context) {
-	symbol := c.Query("symbol")
-	if symbol == "" {
+	symbolOrName := c.Query("symbol")
+	if symbolOrName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "symbol required"})
 		return
 	}
@@ -170,45 +170,46 @@ func GetStockHistory(c *gin.Context) {
 		days = 7
 	}
 
-	// 基本信息
+	// 基本信息（支持代码或名称查询）
 	var basic models.StockBasicInfo
-	if err := config.DB.Where("symbol = ?", symbol).First(&basic).Error; err != nil {
+	if err := config.DB.Where("symbol = ? OR name = ?", symbolOrName, symbolOrName).First(&basic).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "stock not found"})
 		return
 	}
 
 	// 最近 N 天日线数据
 	var dailyData []models.StockDailyData
-	config.DB.Where("symbol = ?", symbol).
+	config.DB.Where("symbol = ?", basic.Symbol).
 		Order("trade_date DESC").
 		Limit(days).Find(&dailyData)
 
 	// 最近 N 天技术指标
 	var indicators []models.StockIndicator
-	config.DB.Where("symbol = ?", symbol).
+	config.DB.Where("symbol = ?", basic.Symbol).
 		Order("calc_date DESC").
 		Limit(days).Find(&indicators)
 
 	// 最近 N 天资金流
-	var moneyFlows []models.StockMoneyFlow
-	config.DB.Where("symbol = ?", symbol).
+	var moneyFlows []models.StockMoneyFlowAll
+	config.DB.Where("symbol = ?", basic.Symbol).
 		Order("trade_date DESC").
 		Limit(days).Find(&moneyFlows)
 
-	// 整合每日数据
-	history := make([]map[string]interface{}, 0, days)
-	for i := 0; i < len(dailyData); i++ {
+	// 整合每日数据（按日期升序返回）
+	history := make([]map[string]interface{}, 0, len(dailyData))
+	for i := len(dailyData) - 1; i >= 0; i-- {
 		d := dailyData[i]
 		var ind models.StockIndicator
-		var mf models.StockMoneyFlow
+		var mf models.StockMoneyFlowAll
 
-		// 找到对应日期的指标和资金流
+		// 找到对应日期的指标
 		for _, x := range indicators {
 			if x.CalcDate.Equal(d.TradeDate) {
 				ind = x
 				break
 			}
 		}
+		// 找到对应日期的资金流
 		for _, x := range moneyFlows {
 			if x.TradeDate.Equal(d.TradeDate) {
 				mf = x
@@ -217,35 +218,34 @@ func GetStockHistory(c *gin.Context) {
 		}
 
 		record := gin.H{
-			"trade_date":         d.TradeDate,
-			"open":               d.Open,
-			"close":              d.Close,
-			"high":               d.High,
-			"low":                d.Low,
-			"volume":             d.Volume,
-			"turnover_rate":      d.TurnoverRate,
-			"change_percent":     d.ChangePercent,
-			"ma5":                ind.MA5,
-			"ma10":               ind.MA10,
-			"ma20":               ind.MA20,
-			"ma60":               ind.MA60,
-			"macd":               ind.MACD,
-			"dif":                ind.DIF,
-			"dea":                ind.DEA,
-			"k":                  ind.K,
-			"d":                  ind.D,
-			"j":                  ind.J,
-			"rsi6":               ind.RSI6,
-			"rsi12":              ind.RSI12,
-			"rsi24":              ind.RSI24,
-			"boll_upper":         ind.BollUpper,
-			"boll_mid":           ind.BollMid,
-			"boll_lower":         ind.BollLower,
-			"main_net":           mf.MainNet,
-			"retail_net":         mf.RetailNet,
-			"large_order_ratio":  mf.LargeOrderRatio,
-			"medium_order_ratio": mf.MediumOrderRatio,
-			"small_order_ratio":  mf.SmallOrderRatio,
+			"trade_date":     d.TradeDate.Format("2006-01-02"),
+			"open":           d.Open,
+			"close":          d.Close,
+			"high":           d.High,
+			"low":            d.Low,
+			"volume":         d.Volume,
+			"turnover_rate":  d.TurnoverRate,
+			"change_percent": d.ChangePercent,
+			"ma5":            ind.MA5,
+			"ma10":           ind.MA10,
+			"ma20":           ind.MA20,
+			"ma60":           ind.MA60,
+			"macd":           ind.MACD,
+			"dif":            ind.DIF,
+			"dea":            ind.DEA,
+			"k":              ind.K,
+			"d":              ind.D,
+			"j":              ind.J,
+			"rsi6":           ind.RSI6,
+			"rsi12":          ind.RSI12,
+			"rsi24":          ind.RSI24,
+			"boll_upper":     ind.BollUpper,
+			"boll_mid":       ind.BollMid,
+			"boll_lower":     ind.BollLower,
+			"in_amount":      mf.InflowAmount,  // 转为万
+			"out_amount":     mf.OutflowAmount, // 转为万
+			"net_amount":     mf.NetAmount,     // 转为万
+			"turnover":       mf.Turnover,      // 转为万
 		}
 		history = append(history, record)
 	}
@@ -258,4 +258,32 @@ func GetStockHistory(c *gin.Context) {
 		"listing_date": basic.ListingDate,
 		"daily_data":   history,
 	})
+}
+
+// @Summary 股票模糊查询（自动补全用）
+// @Tags 股票综合信息
+// @Produce json
+// @Param q query string true "搜索关键字（股票代码或名称的一部分）"
+// @Success 200 {array} map[string]string
+// @Router /stocks/search [get]
+func SearchStocks(c *gin.Context) {
+	q := c.Query("q")
+	if q == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "query required"})
+		return
+	}
+
+	var results []models.StockBasicInfo
+	config.DB.Where("symbol LIKE ? OR name LIKE ?", "%"+q+"%", "%"+q+"%").
+		Limit(10).Find(&results)
+
+	suggestions := make([]map[string]string, 0, len(results))
+	for _, r := range results {
+		suggestions = append(suggestions, map[string]string{
+			"symbol": r.Symbol,
+			"name":   r.Name,
+		})
+	}
+
+	c.JSON(http.StatusOK, suggestions)
 }

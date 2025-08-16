@@ -502,8 +502,7 @@ const docTemplate = `{
                         "type": "string",
                         "description": "交易日期(YYYY-MM-DD)",
                         "name": "trade_date",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "integer",
@@ -886,7 +885,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "股票代码",
+                        "description": "股票代码或股票名称",
                         "name": "symbol",
                         "in": "query",
                         "required": true
@@ -916,6 +915,40 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/stocks/search": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票综合信息"
+                ],
+                "summary": "股票模糊查询（自动补全用）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "搜索关键字（股票代码或名称的一部分）",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            }
                         }
                     }
                 }

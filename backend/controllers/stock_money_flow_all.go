@@ -74,7 +74,7 @@ func GetStockMoneyFlowAllByID(c *gin.Context) {
 // @Tags 股票资金流(ALL)
 // @Produce json
 // @Param symbol path string true "股票代码"
-// @Param trade_date query string true "交易日期(YYYY-MM-DD)"
+// @Param trade_date query string false "交易日期(YYYY-MM-DD)"
 // @Param time_span query int false "时间跨度(0,3,5,10)"
 // @Success 200 {array} models.StockMoneyFlowAll
 // @Failure 400 {string} string "Bad Request"
@@ -84,15 +84,19 @@ func GetStockMoneyFlowAllBySymbolAndDate(c *gin.Context) {
 	symbol := c.Param("symbol")
 	dateStr := c.Query("trade_date")
 	timeSpan := c.Query("time_span")
-
-	date, err := time.Parse("2006-01-02", dateStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid trade_date"})
+	if symbol == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "symbol must set"})
 		return
 	}
-
-	query := config.DB.Where("symbol = ? AND trade_date = ?", symbol, date)
-
+	query := config.DB.Where("symbol = ? ", symbol)
+	if dateStr != "" {
+		date, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid trade_date"})
+			return
+		}
+		query = query.Where("trade_date = ?", date)
+	}
 	if timeSpan != "" {
 		query = query.Where("time_span = ?", timeSpan)
 	}

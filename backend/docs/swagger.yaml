@@ -597,7 +597,6 @@ paths:
       - description: 交易日期(YYYY-MM-DD)
         in: query
         name: trade_date
-        required: true
         type: string
       - description: 时间跨度(0,3,5,10)
         in: query
@@ -858,7 +857,7 @@ paths:
   /stocks/history:
     get:
       parameters:
-      - description: 股票代码
+      - description: 股票代码或股票名称
         in: query
         name: symbol
         required: true
@@ -884,6 +883,28 @@ paths:
           schema:
             type: string
       summary: 获取股票最近 N 天历史数据（含技术指标和资金流）
+      tags:
+      - 股票综合信息
+  /stocks/search:
+    get:
+      parameters:
+      - description: 搜索关键字（股票代码或名称的一部分）
+        in: query
+        name: q
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties:
+                type: string
+              type: object
+            type: array
+      summary: 股票模糊查询（自动补全用）
       tags:
       - 股票综合信息
   /stocks/symbol/{symbol}:

@@ -40,17 +40,19 @@ func main() {
 	//stockRoutes := r.Group("/api/v1/stocks")
 	{
 		stockRoutes := v1.Group("/stocks")
-		stockRoutes.GET("", controllers.GetStocks)
-		stockRoutes.GET("/:id", controllers.GetStockByID)
-		stockRoutes.POST("", controllers.CreateStock)
-		stockRoutes.PUT("/:id", controllers.UpdateStock)
-		//stockRoutes.DELETE("/:id", controllers.DeleteStock)
+		{
+			stockRoutes.GET("", controllers.GetStocks)
+			stockRoutes.GET("/:id", controllers.GetStockByID)
+			stockRoutes.POST("", controllers.CreateStock)
+			stockRoutes.PUT("/:id", controllers.UpdateStock)
+			//stockRoutes.DELETE("/:id", controllers.DeleteStock)
 
-		stockRoutes.GET("/symbol/:symbol", controllers.GetStockBySymbol)
-		//stockRoutes.DELETE("/symbol/:symbol", controllers.DeleteStockBySymbol)
+			stockRoutes.GET("/symbol/:symbol", controllers.GetStockBySymbol)
+			//stockRoutes.DELETE("/symbol/:symbol", controllers.DeleteStockBySymbol)
 
-		stockRoutes.GET("/history", controllers.GetStockHistory)
-
+			stockRoutes.GET("/history", controllers.GetStockHistory)
+			stockRoutes.GET("/search", controllers.SearchStocks)
+		}
 		stockDaily := v1.Group("/stock-daily-data")
 		{
 			stockDaily.GET("", controllers.GetAllStockDailyData)
