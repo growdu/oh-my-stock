@@ -134,17 +134,17 @@ const processed = computed(() => {
   const vols = clipped.map(r => Number(r.volume || 0))
   const candlesticks = clipped.map(r => [Number(r.open), Number(r.close), Number(r.low), Number(r.high)])
 
+  const ma3 = ma(closes, 3)
   const ma5 = ma(closes, 5)
+  const ma7 = ma(closes, 7)
   const ma10 = ma(closes, 10)
-  const ma20 = ma(closes, 20)
-  const ma60 = ma(closes, 60)
 
   // ✅ 改成 "万"
   const inAmt = clipped.map(r => (r.in_amount == null ? null : Math.round(Number(r.in_amount) / 1e4)))
   const outAmt = clipped.map(r => (r.out_amount == null ? null : Math.round(Number(r.out_amount) / 1e4)))
   const netAmt = clipped.map((_, i) => (inAmt[i] == null || outAmt[i] == null) ? null : inAmt[i] - outAmt[i])
 
-  return { dates, opens, closes, lows, highs, vols, candlesticks, ma5, ma10, ma20, ma60, inAmt, outAmt, netAmt }
+  return { dates, opens, closes, lows, highs, vols, candlesticks, ma3, ma5, ma7, ma10, inAmt, outAmt, netAmt }
 })
 
 
@@ -189,10 +189,10 @@ function renderKline() {
     ],
     series: [
       { name: '日K', type: 'candlestick', data: p.candlesticks },
-      { name: 'MA5', type: 'line', data: p.ma5, showSymbol: false, smooth: true },
-      { name: 'MA10', type: 'line', data: p.ma10, showSymbol: false, smooth: true },
-      { name: 'MA20', type: 'line', data: p.ma20, showSymbol: false, smooth: true },
-      { name: 'MA60', type: 'line', data: p.ma60, showSymbol: false, smooth: true },
+      { name: 'MA5', type: 'line', data: p.ma3, showSymbol: false, smooth: true },
+      { name: 'MA10', type: 'line', data: p.ma5, showSymbol: false, smooth: true },
+      { name: 'MA20', type: 'line', data: p.ma7, showSymbol: false, smooth: true },
+      { name: 'MA60', type: 'line', data: p.ma10, showSymbol: false, smooth: true },
       { 
         name: '成交量', 
         type: 'bar', 
