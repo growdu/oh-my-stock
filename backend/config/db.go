@@ -18,6 +18,9 @@ type Config struct {
 		Port string `json:"port"`
 		Name string `json:"name"`
 	} `json:"database"`
+	Frontend struct {
+		Origin string `json:"origin"`
+	} `json:"frontend"`
 }
 
 var (
@@ -38,6 +41,10 @@ func LoadConfig(path string) {
 	}
 }
 
+func GetFrontOrigin() string {
+	return config.Frontend.Origin
+}
+
 func InitDB() {
 
 	// PostgreSQL DSN
@@ -49,7 +56,6 @@ func InitDB() {
 		config.Database.Port,
 		config.Database.Name,
 	)
-	
 
 	// 连接数据库
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})

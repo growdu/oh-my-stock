@@ -1,5 +1,75 @@
 basePath: /api/v1
 definitions:
+  controllers.AddRuleRequest:
+    type: object
+  controllers.GetRulesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/controllers.RuleData'
+        type: array
+      page:
+        example: 1
+        type: integer
+      page_size:
+        example: 20
+        type: integer
+      total:
+        example: 100
+        type: integer
+    type: object
+  controllers.RuleData:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      rule_expression:
+        additionalProperties: true
+        type: object
+      rule_name:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  controllers.UpdateRuleRequest:
+    type: object
+  models.FavoriteRequest:
+    properties:
+      symbol:
+        type: string
+      user_id:
+        type: string
+    required:
+    - symbol
+    - user_id
+    type: object
+  models.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  models.RegisterRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      phone:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
   models.StockBasicInfo:
     properties:
       area:
@@ -97,6 +167,37 @@ definitions:
       volume:
         description: 成交量(股)
         type: integer
+    type: object
+  models.StockHistory:
+    properties:
+      change_percent:
+        type: number
+      close:
+        type: number
+      high:
+        type: number
+      in_amount:
+        type: number
+      low:
+        type: number
+      name:
+        type: string
+      net_amount:
+        type: number
+      open:
+        type: number
+      out_amount:
+        type: number
+      symbol:
+        type: string
+      trade_date:
+        type: string
+      turnover:
+        type: number
+      turnover_rate:
+        type: number
+      volume:
+        type: number
     type: object
   models.StockIndicator:
     properties:
@@ -885,6 +986,81 @@ paths:
       summary: 获取股票最近 N 天历史数据（含技术指标和资金流）
       tags:
       - 股票综合信息
+  /stocks/hot:
+    get:
+      parameters:
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量，默认20
+        in: query
+        name: page_size
+        type: integer
+      - description: 涨幅阈值，默认5
+        format: float64
+        in: query
+        name: threshold
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 分页获取热门股票（涨幅超过指定阈值，默认5%）
+      tags:
+      - 股票综合信息
+  /stocks/info:
+    get:
+      parameters:
+      - description: 股票代码或股票名称
+        in: query
+        name: symbol
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.StockHistory'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: 根据股票代码或名称查询股票基本信息
+      tags:
+      - 股票综合信息
+  /stocks/list:
+    get:
+      parameters:
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量，默认20
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 分页获取所有股票基本信息
+      tags:
+      - 股票综合信息
   /stocks/search:
     get:
       parameters:
@@ -954,4 +1130,256 @@ paths:
       summary: 根据股票代码获取股票信息
       tags:
       - 股票信息
+  /user/favorites:
+    get:
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        required: true
+        type: string
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量，默认20
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取用户收藏的股票（分页）
+      tags:
+      - 用户收藏
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 收藏信息
+        in: body
+        name: favorite
+        required: true
+        schema:
+          $ref: '#/definitions/models.FavoriteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 添加收藏股票
+      tags:
+      - 用户收藏
+  /user/favorites/{id}:
+    delete:
+      parameters:
+      - description: 收藏ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除收藏股票
+      tags:
+      - 用户收藏
+  /user/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 登录信息
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 用户登录
+      tags:
+      - 用户管理
+  /user/register:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户信息
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/models.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 用户注册
+      tags:
+      - 用户管理
+  /user/rules:
+    get:
+      description: 根据 user_id 获取用户规则，可分页
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        required: true
+        type: string
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量，默认20，最大100
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.GetRulesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取用户选股规则（分页）
+      tags:
+      - 用户选股规则
+    post:
+      consumes:
+      - application/json
+      description: 用户添加选股规则
+      parameters:
+      - description: 规则信息
+        in: body
+        name: rule
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.AddRuleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 添加选股规则
+      tags:
+      - 用户选股规则
+  /user/rules/{id}:
+    delete:
+      description: 根据规则ID删除用户规则
+      parameters:
+      - description: 规则ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除选股规则
+      tags:
+      - 用户选股规则
+    put:
+      consumes:
+      - application/json
+      description: 根据规则ID更新用户规则
+      parameters:
+      - description: 规则ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新内容
+        in: body
+        name: rule
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.UpdateRuleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 更新选股规则
+      tags:
+      - 用户选股规则
 swagger: "2.0"

@@ -920,6 +920,121 @@ const docTemplate = `{
                 }
             }
         },
+        "/stocks/hot": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票综合信息"
+                ],
+                "summary": "分页获取热门股票（涨幅超过指定阈值，默认5%）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码，默认1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量，默认20",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float64",
+                        "description": "涨幅阈值，默认5",
+                        "name": "threshold",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/stocks/info": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票综合信息"
+                ],
+                "summary": "根据股票代码或名称查询股票基本信息",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "股票代码或股票名称",
+                        "name": "symbol",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.StockHistory"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/stocks/list": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票综合信息"
+                ],
+                "summary": "分页获取所有股票基本信息",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码，默认1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量，默认20",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/stocks/search": {
             "get": {
                 "produces": [
@@ -1152,9 +1267,490 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/user/favorites": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户收藏"
+                ],
+                "summary": "获取用户收藏的股票（分页）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码，默认1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量，默认20",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户收藏"
+                ],
+                "summary": "添加收藏股票",
+                "parameters": [
+                    {
+                        "description": "收藏信息",
+                        "name": "favorite",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.FavoriteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/user/favorites/{id}": {
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户收藏"
+                ],
+                "summary": "删除收藏股票",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "收藏ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/user/login": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "用户登录",
+                "parameters": [
+                    {
+                        "description": "登录信息",
+                        "name": "user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/user/register": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "用户注册",
+                "parameters": [
+                    {
+                        "description": "用户信息",
+                        "name": "user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.RegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/user/rules": {
+            "get": {
+                "description": "根据 user_id 获取用户规则，可分页",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户选股规则"
+                ],
+                "summary": "获取用户选股规则（分页）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码，默认1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量，默认20，最大100",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.GetRulesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "用户添加选股规则",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户选股规则"
+                ],
+                "summary": "添加选股规则",
+                "parameters": [
+                    {
+                        "description": "规则信息",
+                        "name": "rule",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.AddRuleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/user/rules/{id}": {
+            "put": {
+                "description": "根据规则ID更新用户规则",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户选股规则"
+                ],
+                "summary": "更新选股规则",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "规则ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "更新内容",
+                        "name": "rule",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.UpdateRuleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "根据规则ID删除用户规则",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户选股规则"
+                ],
+                "summary": "删除选股规则",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "规则ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "controllers.AddRuleRequest": {
+            "type": "object"
+        },
+        "controllers.GetRulesResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.RuleData"
+                    }
+                },
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "page_size": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 100
+                }
+            }
+        },
+        "controllers.RuleData": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "rule_expression": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "rule_name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.UpdateRuleRequest": {
+            "type": "object"
+        },
+        "models.FavoriteRequest": {
+            "type": "object",
+            "required": [
+                "symbol",
+                "user_id"
+            ],
+            "properties": {
+                "symbol": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.LoginRequest": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.RegisterRequest": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "models.StockBasicInfo": {
             "type": "object",
             "properties": {
@@ -1285,6 +1881,53 @@ const docTemplate = `{
                 "volume": {
                     "description": "成交量(股)",
                     "type": "integer"
+                }
+            }
+        },
+        "models.StockHistory": {
+            "type": "object",
+            "properties": {
+                "change_percent": {
+                    "type": "number"
+                },
+                "close": {
+                    "type": "number"
+                },
+                "high": {
+                    "type": "number"
+                },
+                "in_amount": {
+                    "type": "number"
+                },
+                "low": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "net_amount": {
+                    "type": "number"
+                },
+                "open": {
+                    "type": "number"
+                },
+                "out_amount": {
+                    "type": "number"
+                },
+                "symbol": {
+                    "type": "string"
+                },
+                "trade_date": {
+                    "type": "string"
+                },
+                "turnover": {
+                    "type": "number"
+                },
+                "turnover_rate": {
+                    "type": "number"
+                },
+                "volume": {
+                    "type": "number"
                 }
             }
         },

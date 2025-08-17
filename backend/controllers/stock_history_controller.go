@@ -61,7 +61,7 @@ func GetStockList(c *gin.Context) {
 	query := config.DB.Model(&models.StockHistory{})
 	query.Count(&total)
 
-	query.Order("symbol").
+	query.Order("change_percent DESC, symbol ASC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Find(&stocks)
@@ -74,7 +74,6 @@ func GetStockList(c *gin.Context) {
 	})
 }
 
-
 // @Summary 分页获取热门股票（涨幅超过指定阈值，默认5%）
 // @Tags 股票综合信息
 // @Produce json
@@ -84,42 +83,42 @@ func GetStockList(c *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /stocks/hot [get]
 func GetHotStocks(c *gin.Context) {
-    pageStr := c.DefaultQuery("page", "1")
-    pageSizeStr := c.DefaultQuery("page_size", "20")
-    thresholdStr := c.DefaultQuery("threshold", "5")
+	pageStr := c.DefaultQuery("page", "1")
+	pageSizeStr := c.DefaultQuery("page_size", "20")
+	thresholdStr := c.DefaultQuery("threshold", "5")
 
-    page, _ := strconv.Atoi(pageStr)
-    pageSize, _ := strconv.Atoi(pageSizeStr)
-    threshold, _ := strconv.ParseFloat(thresholdStr, 64)
+	page, _ := strconv.Atoi(pageStr)
+	pageSize, _ := strconv.Atoi(pageSizeStr)
+	threshold, _ := strconv.ParseFloat(thresholdStr, 64)
 
-    if page <= 0 {
-        page = 1
-    }
-    if pageSize <= 0 || pageSize > 100 {
-        pageSize = 20
-    }
-    if threshold <= 0 {
-        threshold = 5
-    }
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 20
+	}
+	if threshold <= 0 {
+		threshold = 5
+	}
 
-    var total int64
-    var stocks []models.StockHistory
+	var total int64
+	var stocks []models.StockHistory
 
-    query := config.DB.Model(&models.StockHistory{}).
-        Where("change_percent > ?", threshold)
+	query := config.DB.Model(&models.StockHistory{}).
+		Where("change_percent > ?", threshold)
 
-    query.Count(&total)
+	query.Count(&total)
 
-    query.Order("change_percent DESC").
-        Offset((page - 1) * pageSize).
-        Limit(pageSize).
-        Find(&stocks)
+	query.Order("change_percent DESC").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&stocks)
 
-    c.JSON(http.StatusOK, gin.H{
-        "page":      page,
-        "page_size": pageSize,
-        "threshold": threshold,
-        "total":     total,
-        "data":      stocks,
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"page":      page,
+		"page_size": pageSize,
+		"threshold": threshold,
+		"total":     total,
+		"data":      stocks,
+	})
 }

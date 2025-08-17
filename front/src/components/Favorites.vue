@@ -1,14 +1,20 @@
 <template>
-    <Header></Header>
-    <el-card class="module-card">
-      <h3 class="module-title mb-3">收藏股票</h3>
-      <el-table :data="favorites" stripe border style="width:100%">
-        <el-table-column prop="symbol" label="代码" width="100"/>
-        <el-table-column prop="name" label="名称" width="150"/>
-        <el-table-column prop="price" label="当前价" width="120"/>
-        <el-table-column prop="change" label="涨跌幅" width="120">
-          <template #default="scope">
-            <span :class="scope.row.change>0?'up':'down'">{{ scope.row.change }}%</span>
+  <Header></Header>
+    <el-card>
+      <h2>我的收藏</h2>
+      <el-table :data="favorites" stripe style="width:100%">
+        <el-table-column prop="symbol" label="股票代码" width="120"/>
+        <el-table-column prop="name" label="股票名称" width="150"/>
+        <el-table-column prop="change_percent" label="涨跌幅" width="100">
+          <template #default="{ row }">
+            <span :style="{ color: row.change_percent>=0 ? 'red':'green' }">
+              {{ row.change_percent.toFixed(2) }}%
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="100">
+          <template #default="{ row }">
+            <el-button type="danger" size="small" @click="removeFavoriteItem(row.symbol)">取消收藏</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -16,18 +22,28 @@
   </template>
   
   <script setup>
-  import { ref } from 'vue'
-  import Header from './Header.vue';
+  import { ref, onMounted } from 'vue'
+  import { getFavorites, removeFavorite } from '@/utils/api/favorites'
+import Header from '../components/Header.vue'
   
-  const favorites = ref([
-    { symbol: '300001', name: '股票A', price: 10.5, change: 2.5 },
-  ])
+  const favorites = ref([])
+  
+  const refreshFavorites = async ()=>{
+    const res = await getFavorites()
+    favorites.value = Array.isArray(res.data)?res.data:[]
+  }
+  
+  const removeFavoriteItem = async (symbol)=>{
+    await removeFavorite(symbol)
+    await refreshFavorites()
+  }
+  
+  onMounted(async ()=>{
+    await refreshFavorites()
+  })
   </script>
   
   <style scoped>
-  .module-card { padding: 20px; border-radius: 12px; background-color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
-  .module-title { font-size: 18px; font-weight: bold; }
-  .up { color: #f56c6c; }
-  .down { color: #67c23a; }
+  h2 { margin-bottom: 12px; }
   </style>
   

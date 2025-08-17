@@ -1,41 +1,75 @@
 <template>
   <Header></Header>
-    <el-card class="module-card">
-      <h3 class="module-title mb-3">个人规则配置</h3>
-      <el-form :model="rules" label-width="120px">
-        <el-form-item label="关注涨幅">
-          <el-input-number v-model="rules.priceChange" :min="0" :max="50"/>
-        </el-form-item>
-        <el-form-item label="关注跌幅">
-          <el-input-number v-model="rules.priceDrop" :min="0" :max="50"/>
-        </el-form-item>
-        <el-form-item label="通知方式">
-          <el-select v-model="rules.notify" placeholder="请选择">
-            <el-option label="邮件" value="email"/>
-            <el-option label="消息" value="message"/>
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="saveRules">保存配置</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-  </template>
-  
-  <script setup>
-  import { ref } from 'vue'
-  import { ElMessage } from 'element-plus'
-  import Header from './Header.vue'
-  
-  const rules = ref({ priceChange: 5, priceDrop: 5, notify: 'email' })
-  const saveRules = () => {
-    console.log('保存规则:', rules.value)
-    ElMessage.success('个人规则已保存')
+  <el-card>
+    <el-form :model="newRule" inline style="margin-bottom:12px">
+      <el-form-item label="规则名">
+        <el-input v-model="newRule.rule_name" placeholder="规则名称"/>
+      </el-form-item>
+      <el-form-item label="表达式">
+        <el-input v-model="newRule.rule_expressionStr" placeholder='{"change_percent":{"gt":5}}'/>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" size="small" @click="addOrUpdateRule">保存规则</el-button>
+      </el-form-item>
+    </el-form>
+
+    <el-table :data="rules" stripe style="width:100%">
+      <el-table-column prop="rule_name" label="规则名"/>
+      <el-table-column prop="rule_expressionStr" label="表达式" width="760"/>
+      <el-table-column label="操作" width="240">
+      <template #default="{ row }">
+          <el-button size="small" type="primary" @click="editRuleItem(row)">编辑</el-button>
+          <el-button size="small" type="success" @click="applyRule(row)">应用</el-button>
+          <el-button size="small" type="danger" @click="deleteRuleItem(row.id)">删除</el-button>
+      </template>
+      </el-table-column>
+    </el-table>
+  </el-card>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import { getRules as fetchRules, addRule, updateRule, deleteRule } from '@/utils/api/rules'
+import { ElMessage } from 'element-plus'
+import Header from './Header.vue'
+
+const rules = ref([])
+const newRule = ref({ id:null, rule_name:'', rule_expressionStr:'' })
+
+const getRules = async ()=>{
+  try{
+    const res = await fetchRules()
+    rules.value = Array.isArray(res)?res.map(r=>({
+      ...r,
+      rule_expressionStr: r.rule_expression ? JSON.stringify(r.rule_expression) : '{}'
+    })):[]
+  }catch(err){ ElMessage.error('获取规则失败') }
+}
+
+const addOrUpdateRule = async ()=>{
+  if(!newRule.value.rule_name || !newRule.value.rule_expressionStr) return
+  try{
+    const expr = JSON.parse(newRule.value.rule_expressionStr)
+    if(newRule.value.id){
+      await updateRule(newRule.value.id,newRule.value.rule_name,expr)
+    }else{
+      await addRule(newRule.value.rule_name,expr)
+    }
+    newRule.value = {id:null, rule_name:'', rule_expressionStr:''}
+    await getRules()
+  }catch(err){ console.error(err) }
+}
+
+const applyRule = (rule)=>{
+  window.dispatchEvent(new CustomEvent('select-rule', { detail: rule }))
   }
-  </script>
-  
-  <style scoped>
-  .module-card { padding: 20px; border-radius: 12px; background-color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
-  .module-title { font-size: 18px; font-weight: bold; }
-  </style>
-  
+
+const editRuleItem = (rule)=>{ newRule.value={id:rule.id,rule_name:rule.rule_name,rule_expressionStr:rule.rule_expressionStr} }
+const deleteRuleItem = async (id)=>{ await deleteRule(id); await getRules() }
+
+onMounted(async ()=>{ await getRules() })
+</script>
+
+<style scoped>
+h2 { margin-bottom:12px; }
+</style>
