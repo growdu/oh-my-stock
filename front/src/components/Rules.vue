@@ -1,4 +1,5 @@
 <template>
+  <Header></Header>
     <el-card class="module-card">
       <h3 class="module-title mb-3">个人规则配置</h3>
       <el-form :model="rules" label-width="120px">
@@ -24,6 +25,7 @@
   <script setup>
   import { ref } from 'vue'
   import { ElMessage } from 'element-plus'
+  import Header from './Header.vue'
   
   const rules = ref({ priceChange: 5, priceDrop: 5, notify: 'email' })
   const saveRules = () => {

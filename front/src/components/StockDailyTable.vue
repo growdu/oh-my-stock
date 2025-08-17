@@ -1,4 +1,5 @@
 <template>
+  <Header></Header>
   <div class="p-4">
     <!-- Search + Actions -->
     <el-card shadow="never" class="mb-4">
@@ -52,8 +53,10 @@ import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } 
 import * as echarts from 'echarts'
 import axios from 'axios'
 import debounce from 'lodash/debounce'   // ✅ 引入lodash.debounce
+import { ElMessage } from 'element-plus'
+import Header from './Header.vue'
+import { fetchDailyData, searchStocks } from '@/utils/api/daily.js'
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://192.168.3.99:3003'
 
 const querySymbol = ref('000001')
 const loading = ref(false)
@@ -67,34 +70,6 @@ const klineRef = ref(null)
 const moneyRef = ref(null)
 let kChart = null
 let mChart = null
-
-/* ===========================
-   ✅ 自动补全相关
-=========================== */
-// const querySearch = async (queryString, cb) => {
-//   if (!queryString) {
-//     cb([])
-//     return
-//   }
-//   try {
-//     const { data } = await axios.get(`${API_BASE}/api/v1/stocks/search?q=${encodeURIComponent(queryString)}`)
-//     cb(
-//       data.map(item => ({
-//         value: `${item.symbol} ${item.name}`, // 显示效果
-//         symbol: item.symbol,
-//         name: item.name
-//       }))
-//     )
-//   } catch (e) {
-//     console.error(e)
-//     cb([])
-//   }
-// }
-
-// const handleSelect = (item) => {
-//   querySymbol.value = item.symbol   // ✅ 只用代码发请求
-//   fetchStock()
-// }
 
 /* ===========================
    工具函数
@@ -270,13 +245,22 @@ onBeforeUnmount(() => {
 /* ===========================
    API 请求
 =========================== */
+
+// ===========================
+// API 请求
+// ===========================
 async function fetchStock() {
   if (!querySymbol.value) return
   loading.value = true
   try {
-    const url = `${API_BASE}/api/v1/stocks/history?symbol=${encodeURIComponent(querySymbol.value)}`
-    const { data } = await axios.get(url)
-    meta.value = { name: data.name, symbol: data.symbol, market: data.market, industry: data.industry, listing_date: data.listing_date }
+    const { data } = await fetchDailyData(querySymbol.value)
+    meta.value = {
+      name: data.name,
+      symbol: data.symbol,
+      market: data.market,
+      industry: data.industry,
+      listing_date: data.listing_date
+    }
     rows.value = Array.isArray(data.daily_data) ? data.daily_data : []
   } catch (e) {
     console.error(e)
@@ -288,19 +272,16 @@ async function fetchStock() {
   }
 }
 
-/* ===========================
-   自动补全 + 防抖
-=========================== */
-// 真正的搜索函数
+// ===========================
+// 自动补全 + 防抖
+// ===========================
 const doSearch = async (queryString, cb) => {
   if (!queryString) {
     cb([])
     return
   }
   try {
-    const { data } = await axios.get(
-      `${API_BASE}/api/v1/stocks/search?q=${encodeURIComponent(queryString)}`
-    )
+    const { data } = await searchStocks(queryString)
     cb(
       data.map(item => ({
         value: `${item.symbol} ${item.name}`,
@@ -314,9 +295,7 @@ const doSearch = async (queryString, cb) => {
   }
 }
 
-// ✅ 加入防抖（300ms 内连续输入只请求一次）
 const querySearch = debounce(doSearch, 300)
-
 const handleSelect = (item) => {
   querySymbol.value = item.symbol
   fetchStock()

@@ -1,4 +1,5 @@
 <template>
+    <Header></Header>
     <el-card class="module-card">
       <h3 class="module-title mb-3">收藏股票</h3>
       <el-table :data="favorites" stripe border style="width:100%">
@@ -16,6 +17,7 @@
   
   <script setup>
   import { ref } from 'vue'
+  import Header from './Header.vue';
   
   const favorites = ref([
     { symbol: '300001', name: '股票A', price: 10.5, change: 2.5 },
