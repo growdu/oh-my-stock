@@ -1,5 +1,4 @@
 <template>
-  <Header></Header>
   <el-card>
     <div class="table-header">
       <el-input v-model="searchQuery" placeholder="搜索股票代码或名称" size="small" clearable @keyup.enter.native="loadStocks" style="width:200px"/>
@@ -58,7 +57,6 @@
 import { ref, onMounted } from 'vue'
 import { getStocks } from '@/utils/api/stocks'
 import { getFavorites, addFavorite, removeFavorite } from '@/utils/api/favorites'
-import Header from './Header.vue'
 
 const stocks = ref([])
 const favorites = ref([])

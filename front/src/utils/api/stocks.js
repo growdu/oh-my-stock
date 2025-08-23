@@ -14,15 +14,15 @@ export const getStocks = async (page = 1, pageSize = 20) => {
 
 // 获取股票列表（分页）
 export function fetchStockList(params) {
-    return request.get('/api/v1/stocks', { params })
+    return request.get('/stocks', { params })
   }
   
   // 模糊搜索（用于 autocomplete）
   export function searchStocks(keyword) {
-    return request.get('/api/v1/stocks/search', { params: { q: keyword } })
+    return request.get('/stocks/search', { params: { q: keyword } })
   }
   
   // 获取单个股票详情
   export function fetchStockDetail(symbol) {
-    return request.get(`/api/v1/stocks/${symbol}`)
+    return request.get(`/stocks/${symbol}`)
   }

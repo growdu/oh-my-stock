@@ -1,5 +1,4 @@
 <template>
-  <Header></Header>
     <el-card>
       <h2>我的收藏</h2>
       <el-table :data="favorites" stripe style="width:100%">
@@ -24,7 +23,6 @@
   <script setup>
   import { ref, onMounted } from 'vue'
   import { getFavorites, removeFavorite } from '@/utils/api/favorites'
-import Header from '../components/Header.vue'
   
   const favorites = ref([])
   

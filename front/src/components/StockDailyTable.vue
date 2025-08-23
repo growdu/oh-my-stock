@@ -1,5 +1,4 @@
 <template>
-  <Header></Header>
   <div class="p-4">
     <!-- Search + Actions -->
     <el-card shadow="never" class="mb-4">
@@ -54,7 +53,6 @@ import * as echarts from 'echarts'
 import axios from 'axios'
 import debounce from 'lodash/debounce'   // ✅ 引入lodash.debounce
 import { ElMessage } from 'element-plus'
-import Header from './Header.vue'
 import { fetchDailyData, searchStocks } from '@/utils/api/daily.js'
 
 

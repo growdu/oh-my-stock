@@ -1,5 +1,4 @@
 <template>
-  <Header></Header>
   <el-card>
     <el-form :model="newRule" inline style="margin-bottom:12px">
       <el-form-item label="规则名">
@@ -31,7 +30,6 @@
 import { ref, onMounted } from 'vue'
 import { getRules as fetchRules, addRule, updateRule, deleteRule } from '@/utils/api/rules'
 import { ElMessage } from 'element-plus'
-import Header from './Header.vue'
 
 const rules = ref([])
 const newRule = ref({ id:null, rule_name:'', rule_expressionStr:'' })
