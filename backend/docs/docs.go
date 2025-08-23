@@ -15,6 +15,115 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/sina_stock_history": {
+            "get": {
+                "description": "返回指定股票的历史K线数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "股票"
+                ],
+                "summary": "获取新浪股票历史数据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "股票代码，例如 sh600000",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "周期 day/week/month，默认 day",
+                        "name": "period",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/controllers.StockHistoryItem"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/sina_stocks": {
+            "get": {
+                "description": "代理新浪接口，解决跨域问题，并自动将 GBK 转 UTF-8",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "股票"
+                ],
+                "summary": "获取新浪股票行情数据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "股票代码列表（逗号分隔，例如：sh600000,sz000001,sz300750）",
+                        "name": "list",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回原始行情字符串，UTF-8 编码",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/stock-daily-data": {
             "get": {
                 "produces": [
@@ -409,6 +518,29 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "controllers.StockHistoryItem": {
+            "type": "object",
+            "properties": {
+                "close": {
+                    "type": "number"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "high": {
+                    "type": "number"
+                },
+                "low": {
+                    "type": "number"
+                },
+                "open": {
+                    "type": "number"
+                },
+                "volume": {
+                    "type": "number"
+                }
+            }
+        },
         "models.StockBasicInfo": {
             "type": "object",
             "properties": {

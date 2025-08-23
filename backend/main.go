@@ -37,6 +37,8 @@ func main() {
 	// 统一 API 版本
 	// 路由分组
 	v1 := r.Group("/api/v1")
+	v1.GET("/sina_stocks", controllers.GetSinaStocks)
+	v1.GET("/sina_stock_history", controllers.GetSinaStockHistory) // ✅ 新增历史数据接口
 	//stockRoutes := r.Group("/api/v1/stocks")
 	{
 		stockRoutes := v1.Group("/stocks")
