@@ -1,99 +1,248 @@
-CREATE TABLE stock_basic_info (
-    id SERIAL PRIMARY KEY,
-    symbol VARCHAR(10) NOT NULL UNIQUE,        -- 股票代码(如:600000)
-    name VARCHAR(50) NOT NULL,                -- 股票名称
-    full_name VARCHAR(100),                   -- 公司全称
-    industry VARCHAR(50),                     -- 所属行业
-    area VARCHAR(50),                         -- 地区
-    market VARCHAR(20),                       -- 市场类型(主板/创业板/科创板等)
-    listing_date DATE,                        -- 上市日期
-    outstanding_shares DECIMAL(20,4),         -- 流通股本(万股)
-    total_shares DECIMAL(20,4),               -- 总股本(万股)
-    is_hs BOOLEAN,                            -- 是否沪深港通标的
-    status VARCHAR(20),                       -- 上市状态
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- ============================================================
+-- oh-my-stock · 全量建表 DDL（幂等）
+-- 用法：psql "$DATABASE_URL" -f scripts/create_table.sql
+-- 创建扩展 pgcrypto 用于 gen_random_uuid()
+-- ============================================================
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- ============================================================
+-- 1. 股票基础信息表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS stock_basic_info (
+    id                  SERIAL PRIMARY KEY,
+    symbol              VARCHAR(10)  NOT NULL UNIQUE,
+    name                VARCHAR(50)  NOT NULL,
+    full_name           VARCHAR(100),
+    industry            VARCHAR(50),
+    area                VARCHAR(50),
+    market              VARCHAR(20),
+    listing_date        DATE,
+    outstanding_shares  DECIMAL(20,4),
+    total_shares        DECIMAL(20,4),
+    is_hs               BOOLEAN,
+    status              VARCHAR(20),
+    created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_stock_basic_symbol   ON stock_basic_info(symbol);
+CREATE INDEX IF NOT EXISTS idx_stock_basic_industry ON stock_basic_info(industry);
+CREATE INDEX IF NOT EXISTS idx_stock_basic_market   ON stock_basic_info(market);
 
-CREATE INDEX idx_stock_basic_symbol ON stock_basic_info(symbol);
-CREATE INDEX idx_stock_basic_industry ON stock_basic_info(industry);
-
-
-CREATE TABLE stock_daily_data (
-    id SERIAL PRIMARY KEY,
-    symbol VARCHAR(10) NOT NULL,              -- 股票代码
-    trade_date DATE NOT NULL,                 -- 交易日期
-    open DECIMAL(12,4),                      -- 开盘价
-    high DECIMAL(12,4),                      -- 最高价
-    low DECIMAL(12,4),                       -- 最低价
-    close DECIMAL(12,4),                     -- 收盘价
-    adj_close DECIMAL(12,4),                 -- 后复权收盘价
-    volume BIGINT,                           -- 成交量(股)
-    turnover DECIMAL(20,4),                  -- 成交额(元)
-    change_percent DECIMAL(10,4),            -- 涨跌幅(%)
-    change_amount DECIMAL(10,4),             -- 涨跌额
-    turnover_rate DECIMAL(10,4),             -- 换手率(%)
-    pe_ttm DECIMAL(10,4),                    -- 市盈率(TTM)
-    pb DECIMAL(10,4),                        -- 市净率
-    amplitude DECIMAL(10,4),                 -- 振幅(%)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
+-- ============================================================
+-- 2. 股票日线数据
+-- ============================================================
+CREATE TABLE IF NOT EXISTS stock_daily_data (
+    id               SERIAL PRIMARY KEY,
+    symbol           VARCHAR(10) NOT NULL,
+    trade_date       DATE        NOT NULL,
+    open             DECIMAL(12,4),
+    high             DECIMAL(12,4),
+    low              DECIMAL(12,4),
+    close            DECIMAL(12,4),
+    adj_close        DECIMAL(12,4),
+    volume           BIGINT,
+    turnover         DECIMAL(20,4),
+    change_percent   DECIMAL(10,4),
+    change_amount    DECIMAL(10,4),
+    turnover_rate    DECIMAL(10,4),
+    pe_ttm           DECIMAL(10,4),
+    pb               DECIMAL(10,4),
+    amplitude        DECIMAL(10,4),
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uk_stock_daily UNIQUE (symbol, trade_date)
 );
+CREATE INDEX IF NOT EXISTS idx_stock_daily_symbol ON stock_daily_data(symbol);
+CREATE INDEX IF NOT EXISTS idx_stock_daily_date   ON stock_daily_data(trade_date);
 
-CREATE INDEX idx_stock_daily_symbol ON stock_daily_data(symbol);
-CREATE INDEX idx_stock_daily_date ON stock_daily_data(trade_date);
-
-CREATE TABLE stock_financial_data (
-    id SERIAL PRIMARY KEY,
-    symbol VARCHAR(10) NOT NULL,              -- 股票代码
-    report_date DATE NOT NULL,                -- 报告期
-    report_type VARCHAR(20),                  -- 报告类型(年报/季报等)
-    eps DECIMAL(10,4),                       -- 每股收益
-    eps_diluted DECIMAL(10,4),               -- 稀释每股收益
-    total_revenue DECIMAL(20,4),             -- 营业总收入(元)
-    operating_profit DECIMAL(20,4),          -- 营业利润(元)
-    net_profit DECIMAL(20,4),                -- 净利润(元)
-    total_assets DECIMAL(20,4),              -- 总资产(元)
-    total_liabilities DECIMAL(20,4),         -- 总负债(元)
-    equity DECIMAL(20,4),                    -- 股东权益(元)
-    roe DECIMAL(10,4),                       -- 净资产收益率(%)
-    gross_margin DECIMAL(10,4),              -- 毛利率(%)
-    operating_cash_flow DECIMAL(20,4),       -- 经营活动现金流(元)
-    investing_cash_flow DECIMAL(20,4),       -- 投资活动现金流(元)
-    financing_cash_flow DECIMAL(20,4),       -- 筹资活动现金流(元)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
+-- ============================================================
+-- 3. 股票财务数据
+-- ============================================================
+CREATE TABLE IF NOT EXISTS stock_financial_data (
+    id                      SERIAL PRIMARY KEY,
+    symbol                  VARCHAR(10) NOT NULL,
+    report_date             DATE        NOT NULL,
+    report_type             VARCHAR(20),
+    eps                     DECIMAL(10,4),
+    eps_diluted             DECIMAL(10,4),
+    total_revenue           DECIMAL(20,4),
+    operating_profit        DECIMAL(20,4),
+    net_profit              DECIMAL(20,4),
+    total_assets            DECIMAL(20,4),
+    total_liabilities       DECIMAL(20,4),
+    equity                  DECIMAL(20,4),
+    roe                     DECIMAL(10,4),
+    gross_margin            DECIMAL(10,4),
+    operating_cash_flow     DECIMAL(20,4),
+    investing_cash_flow     DECIMAL(20,4),
+    financing_cash_flow     DECIMAL(20,4),
+    created_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uk_stock_financial UNIQUE (symbol, report_date, report_type)
 );
+CREATE INDEX IF NOT EXISTS idx_stock_financial_symbol ON stock_financial_data(symbol);
+CREATE INDEX IF NOT EXISTS idx_stock_financial_date   ON stock_financial_data(report_date);
 
-CREATE INDEX idx_stock_financial_symbol ON stock_financial_data(symbol);
-CREATE INDEX idx_stock_financial_date ON stock_financial_data(report_date);
-
-CREATE TABLE stock_indicators (
-    id SERIAL PRIMARY KEY,
-    symbol VARCHAR(10) NOT NULL,              -- 股票代码
-    calc_date DATE NOT NULL,                 -- 计算日期
-    ma5 DECIMAL(12,4),                       -- 5日均线
-    ma10 DECIMAL(12,4),                      -- 10日均线
-    ma20 DECIMAL(12,4),                      -- 20日均线
-    ma60 DECIMAL(12,4),                      -- 60日均线
-    macd DECIMAL(12,4),                      -- MACD值
-    dif DECIMAL(12,4),                       -- DIF值
-    dea DECIMAL(12,4),                       -- DEA值
-    k DECIMAL(12,4),                         -- KDJ-K值
-    d DECIMAL(12,4),                         -- KDJ-D值
-    j DECIMAL(12,4),                         -- KDJ-J值
-    rsi6 DECIMAL(12,4),                      -- RSI6值
-    rsi12 DECIMAL(12,4),                     -- RSI12值
-    rsi24 DECIMAL(12,4),                     -- RSI24值
-    boll_upper DECIMAL(12,4),                -- 布林线上轨
-    boll_mid DECIMAL(12,4),                  -- 布林线中轨
-    boll_lower DECIMAL(12,4),                -- 布林线下轨
+-- ============================================================
+-- 4. 股票技术指标（MA/MACD/KDJ/RSI/BOLL）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS stock_indicators (
+    id         SERIAL PRIMARY KEY,
+    symbol     VARCHAR(10) NOT NULL,
+    calc_date  DATE        NOT NULL,
+    ma5        DECIMAL(12,4),
+    ma10       DECIMAL(12,4),
+    ma20       DECIMAL(12,4),
+    ma60       DECIMAL(12,4),
+    macd       DECIMAL(12,4),
+    dif        DECIMAL(12,4),
+    dea        DECIMAL(12,4),
+    k          DECIMAL(12,4),
+    d          DECIMAL(12,4),
+    j          DECIMAL(12,4),
+    rsi6       DECIMAL(12,4),
+    rsi12      DECIMAL(12,4),
+    rsi24      DECIMAL(12,4),
+    boll_upper DECIMAL(12,4),
+    boll_mid   DECIMAL(12,4),
+    boll_lower DECIMAL(12,4),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
     CONSTRAINT uk_stock_indicators UNIQUE (symbol, calc_date)
 );
+CREATE INDEX IF NOT EXISTS idx_stock_indicators_symbol ON stock_indicators(symbol);
+CREATE INDEX IF NOT EXISTS idx_stock_indicators_date   ON stock_indicators(calc_date);
 
-CREATE INDEX idx_stock_indicators_symbol ON stock_indicators(symbol);
-CREATE INDEX idx_stock_indicators_date ON stock_indicators(calc_date);
+-- ============================================================
+-- 5. 股票资金流（按 symbol+date 唯一）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS stock_money_flow (
+    id                SERIAL PRIMARY KEY,
+    symbol            VARCHAR(10) NOT NULL,
+    trade_date        DATE        NOT NULL,
+    main_net          DECIMAL(20,4),
+    retail_net        DECIMAL(20,4),
+    large_order_ratio DECIMAL(10,4),
+    medium_order_ratio DECIMAL(10,4),
+    small_order_ratio  DECIMAL(10,4),
+    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_stock_money_flow UNIQUE (symbol, trade_date)
+);
+CREATE INDEX IF NOT EXISTS idx_stock_money_flow_symbol ON stock_money_flow(symbol);
+CREATE INDEX IF NOT EXISTS idx_stock_money_flow_date   ON stock_money_flow(trade_date);
+
+-- ============================================================
+-- 6. 股票资金流榜单（全市场排行、含 TimeSpan 维度）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS stock_money_flow_all (
+    id              SERIAL PRIMARY KEY,
+    time_span       INTEGER     NOT NULL,            -- 0=即时 / 3 / 5 / 10
+    serial_number   INTEGER,
+    symbol          VARCHAR(10) NOT NULL,            -- 保留前导零
+    name            VARCHAR(50),
+    latest_price    DECIMAL(12,4),
+    change_percent  DECIMAL(10,4),
+    turnover_rate   DECIMAL(10,4),
+    inflow_amount   DECIMAL(20,4),
+    outflow_amount  DECIMAL(20,4),
+    net_amount      DECIMAL(20,4),
+    turnover        DECIMAL(20,4),
+    trade_date      DATE        NOT NULL,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_stock_money_flow_all UNIQUE (symbol, trade_date, time_span)
+);
+CREATE INDEX IF NOT EXISTS idx_smf_all_symbol ON stock_money_flow_all(symbol);
+CREATE INDEX IF NOT EXISTS idx_smf_all_date   ON stock_money_flow_all(trade_date);
+CREATE INDEX IF NOT EXISTS idx_smf_all_span   ON stock_money_flow_all(time_span);
+
+-- ============================================================
+-- 7. 候选股表（规则执行结果）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS target_trend_stock (
+    id                SERIAL PRIMARY KEY,
+    symbol            VARCHAR(10)  NOT NULL,
+    name              VARCHAR(50),
+    rule_name         VARCHAR(100) NOT NULL,
+    rule_id           INTEGER,                       -- 可追溯 user_stock_rules.id
+    user_id           UUID,                          -- 哪个用户定义的规则
+    current_price     DECIMAL(12,4),
+    change_3d         DECIMAL(10,4),
+    change_percent    DECIMAL(10,4),
+    turnover_rate     DECIMAL(10,4),
+    net_inflow        DECIMAL(20,4),
+    industry          VARCHAR(50),
+    market            VARCHAR(20),
+    matched_at        DATE        NOT NULL,
+    created_at        TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_target UNIQUE (symbol, rule_name, matched_at)
+);
+CREATE INDEX IF NOT EXISTS idx_target_symbol ON target_trend_stock(symbol);
+CREATE INDEX IF NOT EXISTS idx_target_date   ON target_trend_stock(matched_at);
+CREATE INDEX IF NOT EXISTS idx_target_rule   ON target_trend_stock(rule_name);
+
+-- ============================================================
+-- 8. 用户表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS users (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username      VARCHAR(50)  NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    email         VARCHAR(100) UNIQUE,
+    phone         VARCHAR(20)  UNIQUE,
+    is_active     BOOLEAN      DEFAULT TRUE,
+    created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 自动更新 updated_at
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_users_updated_at') THEN
+        CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON users
+        FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    END IF;
+END $$;
+
+-- ============================================================
+-- 9. 用户自选股
+-- ============================================================
+CREATE TABLE IF NOT EXISTS user_favorite_stocks (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     UUID         NOT NULL,
+    symbol      VARCHAR(10)  NOT NULL,
+    created_at  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_user_fav UNIQUE (user_id, symbol)
+);
+CREATE INDEX IF NOT EXISTS idx_user_fav_symbol ON user_favorite_stocks(symbol);
+CREATE INDEX IF NOT EXISTS idx_user_fav_user   ON user_favorite_stocks(user_id);
+
+-- ============================================================
+-- 10. 用户选股规则（JSONB 表达式）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS user_stock_rules (
+    id              SERIAL PRIMARY KEY,
+    user_id         UUID         NOT NULL,
+    rule_name       VARCHAR(100) NOT NULL,
+    rule_expression JSONB        NOT NULL DEFAULT '{}'::jsonb,
+    created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_user_rule UNIQUE (user_id, rule_name)
+);
+CREATE INDEX IF NOT EXISTS idx_user_rule_user     ON user_stock_rules(user_id);
+CREATE INDEX IF NOT EXISTS idx_rule_expr_gin      ON user_stock_rules USING gin (rule_expression);
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_user_rules_updated_at') THEN
+        CREATE TRIGGER trg_user_rules_updated_at BEFORE UPDATE ON user_stock_rules
+        FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    END IF;
+END $$;
+
+-- ============================================================
+-- 11. 物化视图：stock_history_mv（日线 + 指标 + 资金流 三表对齐）
+--     由 scripts/refresh_mv.py 负责创建/刷新
+-- ============================================================

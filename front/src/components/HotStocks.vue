@@ -1,53 +1,79 @@
 <template>
   <el-card>
-    <div class="table-header">
-      <el-input v-model="searchQuery" placeholder="搜索股票代码或名称" size="small" clearable @keyup.enter.native="loadStocks" style="width:200px"/>
-      <el-select v-model="pageSize" placeholder="每页显示" size="small" @change="loadStocks">
-        <el-option v-for="n in [10,20,50,100]" :key="n" :label="n+'条'" :value="n"/>
-      </el-select>
+    <div class="header">
+      <h2>热点股票</h2>
+      <div>
+        <el-select v-model="market" placeholder="全部市场" clearable @change="loadData" style="width:140px">
+          <el-option label="全部" value="" />
+          <el-option label="主板" value="主板" />
+          <el-option label="创业板" value="创业板" />
+          <el-option label="科创板" value="科创板" />
+        </el-select>
+        <el-input v-model="keyword" placeholder="代码或名称" clearable style="width: 200px; margin-left: 8px" @keyup.enter.native="loadData" />
+        <el-button type="primary" @click="loadData" style="margin-left: 8px">刷新</el-button>
+      </div>
     </div>
 
-    <el-table :data="stocks" stripe :row-class-name="rowClassName" style="width:100%" @row-click="showStockDetail">
-      <el-table-column prop="symbol" label="代码" width="100"/>
-      <el-table-column prop="name" label="名称" width="150"/>
-      <el-table-column prop="open" label="开盘" width="100"/>
-      <el-table-column prop="close" label="收盘" width="100"/>
-      <el-table-column prop="change_percent" label="涨跌幅" width="100">
+    <h3 v-if="tab === 'spot'" class="sub">全市场涨幅榜（默认涨幅 ≥ 5%）</h3>
+    <h3 v-else class="sub">规则选股候选（{{ ruleName || '全部' }}）</h3>
+
+    <el-tabs v-model="tab" @tab-change="onTabChange">
+      <el-tab-pane label="实时热门" name="spot" />
+      <el-tab-pane label="规则候选" name="target" />
+    </el-tabs>
+
+    <el-table :data="rows" stripe :row-class-name="rowClass" @row-click="showDetail">
+      <el-table-column prop="symbol"  label="代码"   width="100" />
+      <el-table-column prop="name"    label="名称"   width="160" />
+      <el-table-column prop="industry"      label="行业"  width="120" />
+      <el-table-column prop="market"        label="市场"  width="100" />
+      <el-table-column prop="current_price" label="现价"  width="120">
+        <template #default="{ row }">{{ fmt(row.current_price ?? row.close) }}</template>
+      </el-table-column>
+      <el-table-column prop="change_percent" label="涨幅%" width="120">
         <template #default="{ row }">
-          <span :style="{ color: row.change_percent>=0?'red':'green' }">{{ row.change_percent.toFixed(2) }}%</span>
+          <span :class="row.change_percent >= 0 ? 'up' : 'down'">
+            {{ fmt(row.change_percent) }}%
+          </span>
         </template>
       </el-table-column>
-      <el-table-column prop="trade_date" label="日期" width="120">
-        <template #default="{ row }">{{ row.trade_date.slice(0,10) }}</template>
+      <el-table-column prop="turnover_rate" label="换手率%" width="100">
+        <template #default="{ row }">{{ fmt(row.turnover_rate) }}</template>
       </el-table-column>
-      <el-table-column label="收藏" width="100">
+      <el-table-column prop="net_inflow" label="主力净流入" width="140">
+        <template #default="{ row }">{{ fmtMoney(row.net_inflow ?? row.net_amount) }}</template>
+      </el-table-column>
+      <el-table-column v-if="tab === 'target'" prop="rule_name" label="命中规则" width="180" />
+      <el-table-column label="收藏" width="80">
         <template #default="{ row }">
-          <el-button size="small" type="text" @click.stop="toggleFavorite(row.symbol)">
-            {{ isFavorite(row.symbol)?'★':'☆' }}
+          <el-button size="small" link @click.stop="toggleFavorite(row.symbol)">
+            {{ isFavorite(row.symbol) ? '★' : '☆' }}
           </el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <div class="pagination">
+    <div class="pager" v-if="tab === 'spot'">
       <el-pagination
         :current-page="page"
         :page-size="pageSize"
         :total="total"
-        @current-change="handlePageChange"
         layout="prev, pager, next, ->, total"
+        @current-change="p => { page = p; loadData() }"
       />
     </div>
 
-    <!-- 股票详情弹窗 -->
-    <el-dialog :visible.sync="showDetailDialog" width="600px" :title="selectedStock?.name || '股票详情'">
-      <div v-if="selectedStock">
-        <p><strong>代码:</strong> {{ selectedStock.symbol }}</p>
-        <p><strong>名称:</strong> {{ selectedStock.name }}</p>
-        <p><strong>开盘:</strong> {{ selectedStock.open }}</p>
-        <p><strong>收盘:</strong> {{ selectedStock.close }}</p>
-        <p><strong>涨跌幅:</strong> <span :style="{ color:selectedStock.change_percent>=0?'red':'green' }">{{ selectedStock.change_percent.toFixed(2) }}%</span></p>
-        <p><strong>日期:</strong> {{ selectedStock.trade_date.slice(0,10) }}</p>
+    <el-dialog v-model="showDetailDialog" width="500" :title="selected?.name || '详情'">
+      <div v-if="selected">
+        <p><b>代码:</b> {{ selected.symbol }}</p>
+        <p><b>行业:</b> {{ selected.industry }}</p>
+        <p><b>现价:</b> {{ fmt(selected.current_price ?? selected.close) }}</p>
+        <p><b>涨幅:</b>
+          <span :class="selected.change_percent >= 0 ? 'up' : 'down'">
+            {{ fmt(selected.change_percent) }}%
+          </span>
+        </p>
+        <p v-if="selected.rule_name"><b>命中规则:</b> {{ selected.rule_name }}</p>
       </div>
     </el-dialog>
   </el-card>
@@ -55,80 +81,78 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getStocks } from '@/utils/api/stocks'
+import { fetchHotStocks } from '@/utils/api/stocks'
+import request from '@/utils/request'
 import { getFavorites, addFavorite, removeFavorite } from '@/utils/api/favorites'
 
-const stocks = ref([])
-const favorites = ref([])
-const rules = ref([]) // 所有选股规则
-const selectedRule = ref(null) // 当前应用规则
-
+const tab = ref('spot')
+const rows = ref([])
+const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
-const total = ref(0)
-const searchQuery = ref('')
-
-const selectedStock = ref(null)
+const market = ref('')
+const keyword = ref('')
 const showDetailDialog = ref(false)
+const selected = ref(null)
 
-const loadStocks = async ()=>{
-  try{
-    const res = await getStocks(page.value,pageSize.value,searchQuery.value)
-    stocks.value = Array.isArray(res.data)?res.data.sort((a,b)=>b.change_percent-a.change_percent):[]
-    total.value = res.total||0
-    if(selectedRule.value) applyRule(selectedRule.value)
-  }catch(err){ console.error(err) }
-}
-
-const handlePageChange = (newPage)=>{ page.value=newPage; loadStocks() }
-
-const refreshFavorites = async ()=>{
+const favorites = ref([])
+const refreshFavorites = async () => {
   const res = await getFavorites()
-  favorites.value = Array.isArray(res.data)?res.data:[]
+  favorites.value = Array.isArray(res.data) ? res.data : []
 }
-
-const toggleFavorite = async (symbol)=>{
-  if(favorites.value.some(f=>f.symbol===symbol)) await removeFavorite(symbol)
-  else await addFavorite(symbol)
+const isFavorite = (s) => favorites.value.some(f => f.symbol === s)
+const toggleFavorite = async (s) => {
+  isFavorite(s) ? await removeFavorite(s) : await addFavorite(s)
   await refreshFavorites()
 }
 
-const isFavorite = (symbol)=> favorites.value.some(f=>f.symbol===symbol)
+const fmt = (v) => (v == null || Number.isNaN(Number(v))) ? '-' : Number(v).toFixed(2)
+const fmtMoney = (v) => v == null ? '-' : (Number(v) / 1e4).toFixed(2) + ' 万'
 
-const showStockDetail = (row)=>{ selectedStock.value=row; showDetailDialog.value=true }
-
-// 高亮规则
-const applyRule = (rule)=>{
-  stocks.value.forEach(stock=>{
-    stock.highlight=false
-    try{
-      const expr = rule.rule_expression||{}
-      let match=true
-      for(const key in expr){
-        const condition=expr[key]
-        if('gt' in condition && stock[key]<=condition.gt) match=false
-        if('lt' in condition && stock[key]>=condition.lt) match=false
-      }
-      if(match) stock.highlight=true
-    }catch(err){ console.error(err) }
-  })
+const loadData = async () => {
+  try {
+    if (tab.value === 'spot') {
+      const res = await fetchHotStocks({ page: page.value, page_size: pageSize.value })
+      rows.value = (res.data || []).filter(s =>
+        (!market.value || s.market === market.value) &&
+        (!keyword.value || s.symbol.includes(keyword.value) || s.name?.includes(keyword.value))
+      )
+      total.value = res.total || rows.value.length
+    } else {
+      const res = await request.get('/target-stocks', { params: { rule_name: ruleName.value } })
+      rows.value = res.data || []
+    }
+  } catch (e) { console.error(e) }
 }
 
-const rowClassName = ({ row })=> row.highlight?'highlight-row':''
+const onTabChange = (name) => {
+  page.value = 1
+  loadData()
+}
 
-onMounted(async ()=>{
+const ruleName = ref('')
+
+// 监听来自 Rules 页"执行后刷新"
+onMounted(async () => {
   await refreshFavorites()
-  await loadStocks()
-  // 监听选股规则选择
-  window.addEventListener('select-rule', (e)=>{
-    selectedRule.value = e.detail
-    applyRule(selectedRule.value)
+  await loadData()
+  window.addEventListener('select-rule', (e) => {
+    ruleName.value = e.detail?.rule_name || ''
+    tab.value = 'target'
+    loadData()
   })
 })
+
+const showDetail = (row) => { selected.value = row; showDetailDialog.value = true }
+const rowClass   = ({ row }) => (row.change_percent >= 5 ? 'highlight-row' : '')
 </script>
 
 <style scoped>
-.highlight-row { background-color:#fff7e6; }
-.table-header { display:flex; justify-content:space-between; margin-bottom:10px; align-items:center; }
-.pagination { margin-top:12px; text-align:right; }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.sub { margin: 0 0 8px; font-size: 14px; color: #888; }
+.pager { margin-top: 12px; text-align: right; }
+.up { color: #d33; font-weight: 600; }
+.down { color: #1a9; font-weight: 600; }
+.highlight-row { background: #fff7e6; }
+h2 { margin: 0; }
 </style>
