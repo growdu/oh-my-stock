@@ -126,9 +126,11 @@ func main() {
 	// offline: disabled
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
 
+	host := config.GetServerHost()
 	port := config.GetServerPort()
-	log.Printf("🚀 服务启动，监听 :%s", port)
-	if err := r.Run(":" + port); err != nil {
+	addr := host + ":" + port
+	log.Printf("🚀 服务启动，监听 %s (所有接口)", addr)
+	if err := r.Run(addr); err != nil {
 		log.Fatal(err)
 	}
 }

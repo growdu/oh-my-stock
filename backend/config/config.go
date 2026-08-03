@@ -69,6 +69,9 @@ func LoadConfig(path string) {
 	}
 
 	// 必要的默认值
+	if Cfg.Server.Host == "" {
+		Cfg.Server.Host = "0.0.0.0"
+	}
 	if Cfg.Server.Port == "" {
 		Cfg.Server.Port = "3003"
 	}
@@ -85,6 +88,7 @@ func expandEnv(s string) string {
 
 func GetFrontOrigin() string { return Cfg.Frontend.Origin }
 func GetServerPort() string { return Cfg.Server.Port }
+func GetServerHost() string { return Cfg.Server.Host }
 
 // ============================================================
 // 初始化数据库
