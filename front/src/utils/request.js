@@ -20,7 +20,7 @@ request.interceptors.request.use(config => {
 
 // 响应拦截：401 / 网络错误统一提示
 request.interceptors.response.use(
-  res => res.data,
+  res => res,
   err => {
     const status = err.response?.status
     const msg = err.response?.data?.error || err.message || '网络错误'
