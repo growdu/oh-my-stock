@@ -8,6 +8,7 @@
 # =============================================================
 services:
   postgres:
+    restart: unless-stopped
     image: postgres:16-alpine
     environment:
       POSTGRES_USER:     ${DB_USER:-postgres}
@@ -24,6 +25,7 @@ services:
       retries: 10
 
   backend:
+    restart: unless-stopped
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -42,6 +44,7 @@ services:
       - "3003:3003"
 
   frontend:
+    restart: unless-stopped
     build:
       context: ./front
       dockerfile: Dockerfile
@@ -52,6 +55,8 @@ services:
 
   # 初始化任务：跑完一次 DDL + 物化视图就退出
   init-mv:
+    env_file:
+      - .env
     image: postgres:16-alpine
     depends_on:
       postgres:

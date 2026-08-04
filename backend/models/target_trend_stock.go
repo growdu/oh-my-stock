@@ -13,7 +13,7 @@ type TargetTrendStock struct {
 	RuleID        *uint     `gorm:"uniqueIndex:idx_target_uniq" json:"rule_id"`
 	UserID        string    `gorm:"type:uuid" json:"user_id"`
 	CurrentPrice  float64   `gorm:"type:decimal(12,4)" json:"current_price"`
-	Change3D      float64   `gorm:"type:decimal(10,4)" json:"change_3d"`
+	Change3D      float64   `gorm:"type:decimal(10,4);column:change_3d" json:"change_3d"`
 	ChangePercent float64   `gorm:"type:decimal(10,4)" json:"change_percent"`
 	TurnoverRate  float64   `gorm:"type:decimal(10,4)" json:"turnover_rate"`
 	NetInflow     float64   `gorm:"type:decimal(20,4)" json:"net_inflow"`

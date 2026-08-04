@@ -132,15 +132,18 @@ func runRuleCore(rule models.UserStockRule) []models.TargetTrendStock {
 		streak_vol AS (
 		    SELECT symbol, COUNT(*) AS days
 		    FROM (
-		        SELECT symbol, trade_date,
-		               LAG(volume) OVER (PARTITION BY symbol ORDER BY trade_date DESC) AS prev_vol,
-		               ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY trade_date DESC) AS rn,
+		        SELECT symbol, trade_date, prev_vol, rn,
 		               SUM(CASE WHEN (volume > 0 AND prev_vol IS NOT NULL
 		                              AND volume >= prev_vol * $1) THEN 1 ELSE 0 END)
 		                   OVER (PARTITION BY symbol ORDER BY trade_date DESC
 		                         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cum
-		        FROM stock_history_mv
-		        WHERE trade_date >= CURRENT_DATE - INTERVAL '60 days'
+		        FROM (
+		            SELECT symbol, trade_date, volume,
+		                   LAG(volume) OVER (PARTITION BY symbol ORDER BY trade_date DESC) AS prev_vol,
+		                   ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY trade_date DESC) AS rn
+		            FROM stock_history_mv
+		            WHERE trade_date >= CURRENT_DATE - INTERVAL '60 days'
+		        ) inner_t
 		    ) t
 		    WHERE cum = rn
 		    GROUP BY symbol, cum
@@ -216,8 +219,8 @@ func runRuleCore(rule models.UserStockRule) []models.TargetTrendStock {
 type cmpItem struct{ col, op string; v interface{} }
 
 func buildWhereFromSpec(spec map[string]interface{}, alias string, amplifyRatio float64) (string, []interface{}) {
-	args := []interface{}{amplifyRatio} // $1 = amplifyRatio (CTE 用)
-	ph := func() string { return fmt.Sprintf("$%d", len(args)) }
+	args := []interface{}{amplifyRatio}; _ = args // $1 = amplifyRatio (CTE 用); outer placeholder starts at $2
+	ph := func() string { return fmt.Sprintf("$%d", len(args)+1) }
 	var conds []string
 
 	addCmp := func(col string, v interface{}) {
