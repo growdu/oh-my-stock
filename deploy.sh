@@ -8,6 +8,7 @@
 #   ./deploy.sh status    # 查看状态
 #   ./deploy.sh logs      # 拉日志
 #   ./deploy.sh rebuild   # 重建镜像并重启
+#   ./deploy.sh frontend  # 仅重新构建前端（dist 挂载进容器，无需重建镜像）
 # =============================================================
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -24,8 +25,11 @@ ensure_env() {
 case "$cmd" in
   start)
     ensure_env
+    echo "→ 构建前端 dist（容器内 yarn，复用 yarn.lock）"
+    docker run --rm -v "$(pwd)/front:/src" -w /src node:20-alpine \
+      sh -c "corepack enable && yarn install --frozen-lockfile && yarn build"
     echo "→ 启动所有服务"
-    docker compose up -d --build
+    docker compose up -d
     echo "→ 等数据库就绪"
     for i in {1..30}; do
       if docker compose exec -T postgres pg_isready -U "${DB_USER:-postgres}" >/dev/null 2>&1; then
@@ -65,8 +69,15 @@ case "$cmd" in
     docker compose up -d
     docker compose up init-mv
     ;;
+  frontend)
+    echo "→ 仅重新构建前端（容器内 yarn）并让 nginx 重新加载"
+    docker run --rm -v "$(pwd)/front:/src" -w /src node:20-alpine \
+      sh -c "corepack enable && yarn install --frozen-lockfile && yarn build"
+    docker compose exec frontend nginx -s reload >/dev/null 2>&1 || docker compose restart frontend
+    echo "✅ 前端已更新"
+    ;;
   *)
-    echo "用法: $0 {start|stop|restart|status|logs|rebuild}"
+    echo "用法: $0 {start|stop|restart|status|logs|rebuild|frontend}"
     exit 1
     ;;
 esac
