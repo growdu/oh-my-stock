@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
-const DEFAULT_BASE = 'http://localhost:3003/api/v1'
+const DEFAULT_BASE = '/api/v1'
 export const API_BASE = import.meta.env.VITE_API_BASE || DEFAULT_BASE
 
 const request = axios.create({

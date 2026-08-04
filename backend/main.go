@@ -26,6 +26,7 @@ func main() {
 	}
 	config.LoadConfig(configPath)
 	config.InitDB()
+	SeedAdmin(config.DB)
 
 	r := gin.Default()
 
