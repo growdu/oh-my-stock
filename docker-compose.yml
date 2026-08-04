@@ -36,7 +36,6 @@ services:
       DB_PORT: 5432
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 3003
-      FRONTEND_ORIGIN: http://localhost:5173
     depends_on:
       postgres:
         condition: service_healthy

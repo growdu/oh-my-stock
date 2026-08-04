@@ -8,6 +8,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"oh-my-stock/config"
@@ -31,16 +32,13 @@ func main() {
 	r := gin.Default()
 
 	// CORS
-	corsOrigin := config.GetFrontOrigin()
-	if corsOrigin == "" {
-		corsOrigin = "*"
-	}
+	origins := splitOrigins(config.GetFrontOrigin())
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{corsOrigin},
+		AllowOrigins:     origins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-User-Id"},
 		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: corsOrigin != "*",
+		AllowCredentials: !containsWildcard(origins),
 		MaxAge:           12 * time.Hour,
 	}))
 
@@ -132,4 +130,34 @@ func main() {
 	if err := r.Run(addr); err != nil {
 		log.Fatal(err)
 	}
+}
+
+
+// splitOrigins 把逗号分隔的 origin 列表切成切片
+// 空串、"*" 返回 ["*"]；否则按逗号 + 空白拆分
+func splitOrigins(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "*" {
+		return []string{"*"}
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return []string{"*"}
+	}
+	return out
+}
+
+func containsWildcard(ls []string) bool {
+	for _, x := range ls {
+		if x == "*" {
+			return true
+		}
+	}
+	return false
 }
