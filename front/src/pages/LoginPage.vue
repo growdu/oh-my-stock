@@ -92,9 +92,13 @@ const handleLogin = async () => {
     if (!valid) return
     try {
       const res = await request.post('/user/login', loginForm.value)
-      // 后端返回 token + user_id
-      localStorage.setItem('token', res.token)
-      localStorage.setItem('user_id', res.user_id)
+      const token = res.data?.token
+      if (!token) {
+        ElMessage.error('登录返回异常：未拿到 token')
+        return
+      }
+      localStorage.setItem('token', token)
+      localStorage.setItem('user_id', res.data.user_id)
       localStorage.setItem('username', loginForm.value.username)
       ElMessage.success(loginForm.value.username+'登录成功')
       router.push('/home')
