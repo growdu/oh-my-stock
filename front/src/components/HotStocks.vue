@@ -98,7 +98,7 @@ const selected = ref(null)
 const favorites = ref([])
 const refreshFavorites = async () => {
   const res = await getFavorites()
-  favorites.value = Array.isArray(res.data) ? res.data : []
+  favorites.value = Array.isArray(res.data?.data) ? res.data.data : []
 }
 const isFavorite = (s) => favorites.value.some(f => f.symbol === s)
 const toggleFavorite = async (s) => {
@@ -113,14 +113,14 @@ const loadData = async () => {
   try {
     if (tab.value === 'spot') {
       const res = await fetchHotStocks({ page: page.value, page_size: pageSize.value })
-      rows.value = (res.data || []).filter(s =>
+      rows.value = (res.data?.data || []).filter(s =>
         (!market.value || s.market === market.value) &&
         (!keyword.value || s.symbol.includes(keyword.value) || s.name?.includes(keyword.value))
       )
-      total.value = res.total || rows.value.length
+      total.value = res.data?.total || rows.value.length
     } else {
       const res = await request.get('/target-stocks', { params: { rule_name: ruleName.value } })
-      rows.value = res.data || []
+      rows.value = res.data?.data || []
     }
   } catch (e) { console.error(e) }
 }

@@ -113,10 +113,10 @@ const handleSearchEnter = () => {
 const loadStocks = async () => {
   try {
     const res = await getStocks(page.value, pageSize.value, searchQuery.value)
-    stocks.value = Array.isArray(res.data)
-      ? res.data.sort((a, b) => b.change_percent - a.change_percent)
+    stocks.value = Array.isArray(res.data?.data)
+      ? res.data.data.sort((a, b) => b.change_percent - a.change_percent)
       : []
-    total.value = res.total || 0
+    total.value = res.data?.total || 0
   } catch (err) {
     console.error(err)
   }
@@ -135,7 +135,7 @@ const handlePageSizeChange = (newSize) => {
 
 const refreshFavorites = async () => {
   const res = await getFavorites()
-  favorites.value = Array.isArray(res.data) ? res.data : []
+  favorites.value = Array.isArray(res.data?.data) ? res.data.data : []
 }
 
 const toggleFavorite = async (symbol) => {

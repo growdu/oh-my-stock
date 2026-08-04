@@ -16,8 +16,8 @@ export function usePaginatedData(apiFn) {
         pageSize: pageSize.value,
         query: query.value
       })
-      data.value = res.data || []
-      total.value = res.total || 0
+      data.value = res.data?.data || []
+      total.value = res.data?.total || 0
     } catch (err) {
       console.error('加载数据失败', err)
     } finally {

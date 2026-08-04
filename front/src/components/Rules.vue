@@ -90,7 +90,7 @@ const shortExpr = (e) => {
 const getRules_ = async () => {
   try {
     const res = await getRules()
-    rules.value = (res.data || []).map(r => ({
+    rules.value = (res.data?.data || []).map(r => ({
       ...r,
       rule_expressionStr: r.rule_expression ? JSON.stringify(r.rule_expression) : '{}',
     }))

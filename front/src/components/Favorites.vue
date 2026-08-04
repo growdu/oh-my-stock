@@ -28,7 +28,7 @@
   
   const refreshFavorites = async ()=>{
     const res = await getFavorites()
-    favorites.value = Array.isArray(res.data)?res.data:[]
+    favorites.value = Array.isArray(res.data?.data)?res.data.data:[]
   }
   
   const removeFavoriteItem = async (symbol)=>{
