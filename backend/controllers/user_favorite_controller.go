@@ -24,12 +24,20 @@ func AddFavorite(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 校验 symbol 是否在 stock_basic_info 中存在，避免拼错/过期代码入库。
+	var basic models.StockBasicInfo
+	if err := config.DB.Select("symbol, name").Where("symbol = ?", req.Symbol).First(&basic).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "symbol 不存在或未入库"})
+		return
+	}
+
 	fav := models.UserFavoriteStock{UserID: uid, Symbol: req.Symbol}
 	if err := config.DB.Create(&fav).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "添加收藏失败，可能已存在"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "收藏成功", "favorite_id": fav.ID})
+	c.JSON(http.StatusOK, gin.H{"message": "收藏成功", "favorite_id": fav.ID, "symbol": basic.Symbol, "name": basic.Name})
 }
 
 // GetFavorites 分页获取当前用户的自选股
