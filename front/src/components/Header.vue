@@ -27,6 +27,9 @@
       <el-menu-item index="/rules">
         <router-link to="/rules">我的规则</router-link>
       </el-menu-item>
+      <el-menu-item index="/presets">
+        <router-link to="/presets">默认策略</router-link>
+      </el-menu-item>
     </el-menu>
 
     <!-- 用户区 -->
@@ -80,8 +83,6 @@ const handleLoginLogout = () => {
   justify-content: space-between;
   padding: 0 20px;
   height: 60px;
-  /* background-color: #1f3c88; 深蓝背景 */
-  /* color: #fff; */
   font-family: 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -101,14 +102,11 @@ const handleLoginLogout = () => {
   margin-left: 30px;
 }
 .menu :deep(.el-menu-item) > a {
-  /* color: #fff; 白色文字 */
   font-weight: 500;
   font-size: 16px;
   padding: 0 12px;
 }
 .menu :deep(.el-menu-item.is-active > a) {
-  /* color: #1f3c88;      /* 选中蓝字 */
-  /* background-color: #66b1ff;  */
   border-radius: 4px;
 }
 
@@ -118,8 +116,6 @@ const handleLoginLogout = () => {
   gap: 10px;
 }
 .login-btn {
-  /* background-color: #fff; 白底 */
-  /* color: #1f3c88;         蓝字 */
   border-radius: 4px;
   padding: 4px 12px;
   font-size: 14px;

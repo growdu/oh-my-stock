@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginPage    from '@/pages/LoginPage.vue'
 import HomePage     from '@/pages/HomePage.vue'
+import Presets      from '@/pages/Presets.vue'
 import Favorites    from '@/components/Favorites.vue'
 import Rules        from '@/components/Rules.vue'
 import HotStocks    from '@/components/HotStocks.vue'
@@ -14,6 +15,7 @@ const routes = [
   { path: '/daily',    name: 'Daily',    component: StockDailyTable, meta: { requiresAuth: true } },
   { path: '/favorites',name: 'Favorites',component: Favorites,    meta: { requiresAuth: true } },
   { path: '/rules',    name: 'Rules',    component: Rules,        meta: { requiresAuth: true } },
+  { path: '/presets',  name: 'Presets',  component: Presets,      meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({
