@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
-
 )
 
 // RunResult 单条命中。
@@ -91,8 +90,22 @@ WITH ranked AS (
     LAG(h.net_amount, 2) OVER w AS net_lag2,
     LAG(h.net_amount, 3) OVER w AS net_lag3,
     AVG(h.volume) OVER (PARTITION BY h.symbol ORDER BY h.trade_date ROWS BETWEEN 5 PRECEDING AND 1 PRECEDING) AS vol_avg5,
+    MAX(h.high)    OVER (PARTITION BY h.symbol ORDER BY h.trade_date ROWS BETWEEN 5  PRECEDING AND 1 PRECEDING)  AS high_max5,
     MAX(h.high)    OVER (PARTITION BY h.symbol ORDER BY h.trade_date ROWS BETWEEN 30 PRECEDING AND 1 PRECEDING) AS high_max30,
-    MAX(h.high)    OVER (PARTITION BY h.symbol ORDER BY h.trade_date ROWS BETWEEN 5  PRECEDING AND 1 PRECEDING) AS high_max5,
+    MAX(h.high)    OVER (PARTITION BY h.symbol ORDER BY h.trade_date ROWS BETWEEN 60 PRECEDING AND 1 PRECEDING) AS high_max60,
+    MAX(h.high)    OVER (PARTITION BY h.symbol ORDER BY h.trade_date ROWS BETWEEN 90 PRECEDING AND 1 PRECEDING) AS high_max90,
+    LAG(i.ma5,  2) OVER w AS ma5_lag2,
+    LAG(i.ma10, 2) OVER w AS ma10_lag2,
+    LAG(i.ma20, 2) OVER w AS ma20_lag2,
+    LAG(i.ma60, 2) OVER w AS ma60_lag2,
+    LAG(i.ma5,  3) OVER w AS ma5_lag3,
+    LAG(i.ma10, 3) OVER w AS ma10_lag3,
+    LAG(i.ma20, 3) OVER w AS ma20_lag3,
+    LAG(i.ma60, 3) OVER w AS ma60_lag3,
+    LAG(i.ma5,  4) OVER w AS ma5_lag4,
+    LAG(i.ma10, 4) OVER w AS ma10_lag4,
+    LAG(i.ma20, 4) OVER w AS ma20_lag4,
+    LAG(i.ma60, 4) OVER w AS ma60_lag4,
     LAG(i.ma5,  5) OVER w AS ma5_lag5,
     LAG(i.ma10, 5) OVER w AS ma10_lag5,
     LAG(i.ma20, 5) OVER w AS ma20_lag5,
@@ -104,7 +117,7 @@ WITH ranked AS (
   FROM stock_history_mv h
   LEFT JOIN stock_basic_info b ON b.symbol = h.symbol
   LEFT JOIN stock_indicators  i ON i.symbol = h.symbol AND i.calc_date = h.trade_date
-  WHERE h.trade_date >= (SELECT MAX(trade_date) FROM stock_history_mv) - INTERVAL '30 days'
+  WHERE h.trade_date >= (SELECT MAX(trade_date) FROM stock_history_mv) - INTERVAL '90 days'
   WINDOW w AS (PARTITION BY h.symbol ORDER BY h.trade_date)
 ),
 latest AS (
@@ -151,8 +164,22 @@ WITH ranked AS (
     LAG(h.net_amount, 2) OVER w AS net_lag2,
     LAG(h.net_amount, 3) OVER w AS net_lag3,
     AVG(h.volume) OVER (PARTITION BY h.symbol ORDER BY h.trade_date ROWS BETWEEN 5 PRECEDING AND 1 PRECEDING) AS vol_avg5,
+    MAX(h.high)    OVER (PARTITION BY h.symbol ORDER BY h.trade_date ROWS BETWEEN 5  PRECEDING AND 1 PRECEDING)  AS high_max5,
     MAX(h.high)    OVER (PARTITION BY h.symbol ORDER BY h.trade_date ROWS BETWEEN 30 PRECEDING AND 1 PRECEDING) AS high_max30,
-    MAX(h.high)    OVER (PARTITION BY h.symbol ORDER BY h.trade_date ROWS BETWEEN 5  PRECEDING AND 1 PRECEDING) AS high_max5,
+    MAX(h.high)    OVER (PARTITION BY h.symbol ORDER BY h.trade_date ROWS BETWEEN 60 PRECEDING AND 1 PRECEDING) AS high_max60,
+    MAX(h.high)    OVER (PARTITION BY h.symbol ORDER BY h.trade_date ROWS BETWEEN 90 PRECEDING AND 1 PRECEDING) AS high_max90,
+    LAG(i.ma5,  2) OVER w AS ma5_lag2,
+    LAG(i.ma10, 2) OVER w AS ma10_lag2,
+    LAG(i.ma20, 2) OVER w AS ma20_lag2,
+    LAG(i.ma60, 2) OVER w AS ma60_lag2,
+    LAG(i.ma5,  3) OVER w AS ma5_lag3,
+    LAG(i.ma10, 3) OVER w AS ma10_lag3,
+    LAG(i.ma20, 3) OVER w AS ma20_lag3,
+    LAG(i.ma60, 3) OVER w AS ma60_lag3,
+    LAG(i.ma5,  4) OVER w AS ma5_lag4,
+    LAG(i.ma10, 4) OVER w AS ma10_lag4,
+    LAG(i.ma20, 4) OVER w AS ma20_lag4,
+    LAG(i.ma60, 4) OVER w AS ma60_lag4,
     LAG(i.ma5,  5) OVER w AS ma5_lag5,
     LAG(i.ma10, 5) OVER w AS ma10_lag5,
     LAG(i.ma20, 5) OVER w AS ma20_lag5,
@@ -164,7 +191,7 @@ WITH ranked AS (
   FROM stock_history_mv h
   LEFT JOIN stock_basic_info b ON b.symbol = h.symbol
   LEFT JOIN stock_indicators  i ON i.symbol = h.symbol AND i.calc_date = h.trade_date
-  WHERE h.trade_date >= (SELECT MAX(trade_date) FROM stock_history_mv) - INTERVAL '30 days'
+  WHERE h.trade_date >= (SELECT MAX(trade_date) FROM stock_history_mv) - INTERVAL '90 days'
   WINDOW w AS (PARTITION BY h.symbol ORDER BY h.trade_date)
 ),
 latest AS (
@@ -173,7 +200,7 @@ latest AS (
 )
 SELECT COUNT(*) FROM latest
 LEFT JOIN stock_basic_info basic ON basic.symbol = latest.symbol
-WHERE ` + "1=1" + `
+WHERE `+"1=1"+`
   AND %s`, compiled.Where)
 
 	var total int64

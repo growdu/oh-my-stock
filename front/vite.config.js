@@ -2,7 +2,9 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
-// https://vite.dev/config/
+// 把 /api 转到同机后端；部署机器不同则用 VITE_API_BACKEND=http://host:port 覆盖
+const backend = process.env.VITE_API_BACKEND || 'http://127.0.0.1:3003'
+
 export default defineConfig({
   plugins: [vue()],
   server: {
@@ -10,15 +12,15 @@ export default defineConfig({
     port: 5713,
     proxy: {
       '/api': {
-        target: 'http://192.168.3.99:3003/api',
+        target: backend,
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        // 不再 strip /api：直接由后端处理 /api/* 路径
       },
     },
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'), // ✅ 让 @ 指向 src
+      '@': path.resolve(__dirname, './src'),
     },
   },
 })

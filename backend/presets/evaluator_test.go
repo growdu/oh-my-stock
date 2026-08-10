@@ -41,7 +41,7 @@ func TestCompile_YangStreak(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 0; i < 3; i++ {
-		want := "yang_lag" + []string{"0","1","2","3"}[i] + " = TRUE"
+		want := "yang_lag" + []string{"0", "1", "2", "3"}[i] + " = TRUE"
 		if !strings.Contains(r.Where, want) {
 			t.Errorf("missing %q", want)
 		}
@@ -111,7 +111,6 @@ func TestByID(t *testing.T) {
 	}
 }
 
-
 // 空表达式应报错，避免上层误以为永远命中。
 func TestCompile_Empty(t *testing.T) {
 	if _, err := Compile([]byte("")); err == nil {
@@ -149,14 +148,18 @@ func TestAllPresets_NoUnknownTypes(t *testing.T) {
 	walk = func(v interface{}) {
 		switch v := v.(type) {
 		case []interface{}:
-			for _, x := range v { walk(x) }
+			for _, x := range v {
+				walk(x)
+			}
 		case map[string]interface{}:
 			if typ, ok := v["type"].(string); ok {
 				if _, known := typeSet[typ]; !known {
 					t.Errorf("unknown condition type %q", typ)
 				}
 			}
-			for _, x := range v { walk(x) }
+			for _, x := range v {
+				walk(x)
+			}
 		}
 	}
 	for _, p := range All {

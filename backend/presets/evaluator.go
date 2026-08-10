@@ -367,7 +367,10 @@ func compileOne(c map[string]interface{}, idx int) (string, []interface{}, int, 
 	case "list_age_days_lt":
 		days, _ := numericArg(c["days"])
 		d := int(days)
-		return fmt.Sprintf("(basic.listing_date IS NULL OR basic.listing_date > (CURRENT_DATE - $%d::int))", idx),
+		// 排除「上市未满 N 天」：只有真正有 listing_date 且距今 < N 天的股票才被标记为新股。
+		// listing_date 为 NULL 表示未知上市日期，按老股放行。
+		// 作为 exclude 时（默认）：整体 NOT 后只有「真新股」被排除，老股与未知都保留。
+		return fmt.Sprintf("(basic.listing_date IS NOT NULL AND basic.listing_date > (CURRENT_DATE - $%d::int))", idx),
 			[]interface{}{d}, 1, nil
 
 	case "market_cap_yi":
@@ -379,6 +382,32 @@ func compileOne(c map[string]interface{}, idx int) (string, []interface{}, int, 
 		}
 		return fmt.Sprintf("(basic.outstanding_shares IS NOT NULL AND basic.outstanding_shares > 0 AND latest.close * basic.outstanding_shares / 1e8 BETWEEN $%d AND $%d)", idx, idx+1),
 			[]interface{}{minV, maxV}, 2, nil
+
+	// --- 板型筛选 ---
+	case "board_in":
+		raw, _ := c["boards"].([]interface{})
+		if len(raw) == 0 {
+			return "", nil, 0, fmt.Errorf("board_in: need boards[]")
+		}
+		conds := []string{}
+		for _, b := range raw {
+			s, _ := b.(string)
+			switch s {
+			case "科创板":
+				conds = append(conds, "latest.symbol LIKE '688%'")
+			case "主板":
+				conds = append(conds, "(latest.symbol LIKE '60%' OR latest.symbol LIKE '00%' OR latest.symbol LIKE '20%')")
+			case "创业板":
+				conds = append(conds, "(latest.symbol LIKE '300%' OR latest.symbol LIKE '301%')")
+			case "B股":
+				conds = append(conds, "latest.symbol LIKE '9%'")
+			case "北交所":
+				conds = append(conds, "(latest.symbol LIKE '8%' OR latest.symbol LIKE '43%' OR latest.symbol LIKE '92%')")
+			default:
+				return "", nil, 0, fmt.Errorf("board_in: unknown board %q", s)
+			}
+		}
+		return "(" + strings.Join(conds, " OR ") + ")", nil, 0, nil
 
 	default:
 		return "", nil, 0, fmt.Errorf("unknown condition type %q", t)
