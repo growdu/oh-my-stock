@@ -2,15 +2,25 @@
   <el-card>
     <div class="header">
       <h2>热点股票</h2>
-      <div>
-        <el-select v-model="market" placeholder="全部市场" clearable @change="loadData" style="width:140px">
-          <el-option label="全部" value="" />
-          <el-option label="主板" value="主板" />
-          <el-option label="创业板" value="创业板" />
-          <el-option label="科创板" value="科创板" />
-        </el-select>
-        <el-input v-model="keyword" placeholder="代码或名称" clearable style="width: 200px; margin-left: 8px" @keyup.enter.native="loadData" />
-        <el-button type="primary" @click="loadData" style="margin-left: 8px">刷新</el-button>
+      <div class="filters">
+        <el-input v-model="keyword" placeholder="代码或名称" clearable style="width: 200px" @keyup.enter.native="loadData" />
+        <el-button type="primary" @click="loadData">刷新</el-button>
+      </div>
+    </div>
+
+    <!-- 市场筛选：卡片式 -->
+    <div class="filter-row">
+      <span class="filter-label">市场</span>
+      <div class="filter-cards">
+        <div
+          v-for="opt in marketOptions"
+          :key="opt.value"
+          :class="['fcard', { active: market === opt.value }]"
+          @click="setMarket(opt.value)"
+        >
+          <div class="fcard-name">{{ opt.label }}</div>
+          <div class="fcard-sub">{{ opt.sub }}</div>
+        </div>
       </div>
     </div>
 
@@ -95,6 +105,14 @@ const keyword = ref('')
 const showDetailDialog = ref(false)
 const selected = ref(null)
 
+// 卡片式市场筛选
+const marketOptions = [
+  { label: '全部',  value: '',        sub: '沪深京' },
+  { label: '主板',  value: '主板',    sub: '60/00/20' },
+  { label: '创业板', value: '创业板',  sub: '300/301' },
+  { label: '科创板', value: '科创板',  sub: '688' },
+]
+
 const favorites = ref([])
 const refreshFavorites = async () => {
   const res = await getFavorites()
@@ -108,6 +126,8 @@ const toggleFavorite = async (s) => {
 
 const fmt = (v) => (v == null || Number.isNaN(Number(v))) ? '-' : Number(v).toFixed(2)
 const fmtMoney = (v) => v == null ? '-' : (Number(v) / 1e4).toFixed(2) + ' 万'
+
+const setMarket = (v) => { market.value = v; page.value = 1; loadData() }
 
 const loadData = async () => {
   try {
@@ -132,7 +152,6 @@ const onTabChange = (name) => {
 
 const ruleName = ref('')
 
-// 监听来自 Rules 页"执行后刷新"
 onMounted(async () => {
   await refreshFavorites()
   await loadData()
@@ -155,4 +174,32 @@ const rowClass   = ({ row }) => (row.change_percent >= 5 ? 'highlight-row' : '')
 .down { color: #1a9; font-weight: 600; }
 .highlight-row { background: #fff7e6; }
 h2 { margin: 0; }
+.filters { display: flex; gap: 8px; align-items: center; }
+
+/* 卡片式筛选 */
+.filter-row { margin: 0 0 14px; display: flex; align-items: center; gap: 10px; }
+.filter-label { color: #606266; font-size: 13px; }
+.filter-cards { display: flex; gap: 10px; flex-wrap: wrap; }
+.fcard {
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 8px 14px;
+  background: #fff;
+  cursor: pointer;
+  min-width: 96px;
+  text-align: center;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+}
+.fcard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 10px rgba(0,0,0,.08);
+  border-color: #c0c4cc;
+}
+.fcard.active {
+  border-color: #409eff;
+  background: linear-gradient(135deg, #ecf5ff 0%, #ffffff 100%);
+  box-shadow: 0 2px 12px rgba(64,158,255,.18);
+}
+.fcard-name { font-size: 14px; font-weight: 700; color: #303133; }
+.fcard-sub  { font-size: 11px; color: #909399; margin-top: 2px; }
 </style>

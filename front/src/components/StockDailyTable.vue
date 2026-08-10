@@ -14,12 +14,21 @@
           @keyup.enter.native="fetchStock"
         />
         <el-button type="primary" :loading="loading" @click="fetchStock">查询</el-button>
-        <el-select v-model="range" placeholder="区间" style="width: 140px">
-          <el-option :value="60" label="近60日" />
-          <el-option :value="120" label="近120日" />
-          <el-option :value="240" label="近240日" />
-          <el-option :value="0" label="全部" />
-        </el-select>
+        <!-- 区间筛选：卡片式 -->
+        <div class="filter-row">
+          <span class="filter-label">区间</span>
+          <div class="filter-cards">
+            <div
+              v-for="opt in rangeOptions"
+              :key="opt.value"
+              :class="['fcard', { active: range === opt.value }]"
+              @click="range = opt.value"
+            >
+              <div class="fcard-name">{{ opt.label }}</div>
+              <div class="fcard-sub">{{ opt.sub }}</div>
+            </div>
+          </div>
+        </div>
         <el-switch v-model="showMoneyFlow" active-text="显示资金流" />
       </div>
     </el-card>
@@ -59,6 +68,13 @@ import { fetchDailyData, searchStocks } from '@/utils/api/daily.js'
 const querySymbol = ref('000001')
 const loading = ref(false)
 const range = ref(120)
+
+const rangeOptions = [
+  { label: '近60日',  value: 60,  sub: '约 2 个月' },
+  { label: '近120日', value: 120, sub: '约半年' },
+  { label: '近240日', value: 240, sub: '约 8 个月' },
+  { label: '全部',    value: 0,   sub: '上市以来' },
+]
 const showMoneyFlow = ref(true)
 
 const meta = ref(null)
@@ -315,4 +331,31 @@ const handleSelect = (item) => {
 .mt-8 { margin-top: 2rem; }
 
 
+
+/* 卡片式筛选 */
+.filter-row { display: flex; align-items: center; gap: 10px; }
+.filter-label { color: #606266; font-size: 13px; }
+.filter-cards { display: flex; gap: 8px; flex-wrap: wrap; }
+.fcard {
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 6px 12px;
+  background: #fff;
+  cursor: pointer;
+  min-width: 84px;
+  text-align: center;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+}
+.fcard:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  border-color: #c0c4cc;
+}
+.fcard.active {
+  border-color: #409eff;
+  background: linear-gradient(135deg, #ecf5ff 0%, #ffffff 100%);
+  box-shadow: 0 2px 10px rgba(64,158,255,.16);
+}
+.fcard-name { font-size: 13px; font-weight: 700; color: #303133; }
+.fcard-sub  { font-size: 11px; color: #909399; margin-top: 1px; }
 </style>
