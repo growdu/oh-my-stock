@@ -199,10 +199,18 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.page { padding: 16px; }
+.page {
+  padding: 16px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+}
 
 /* ============ 8 卡 grid 全可见 + 选中高亮放大 ============ */
 .rules-section {
+  flex: 0 0 auto;
   padding: 16px 0 8px;
   margin-bottom: 8px;
 }
@@ -318,9 +326,13 @@ onMounted(async () => {
 
 /* ============ 命中股票 ============ */
 .stocks-section {
-  margin-top: 16px;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 .stocks-header {
+  flex: 0 0 auto;
   display: flex; align-items: baseline; gap: 12px;
   margin-bottom: 12px;
   padding: 0 4px;
@@ -330,9 +342,12 @@ onMounted(async () => {
 
 .cards-stage { perspective: 1200px; }
 .stocks-grid {
+  flex: 1 1 auto;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, 1fr);
   gap: 12px;
+  min-height: 0;
 }
 @media (max-width: 1280px) { .stocks-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 900px)  { .stocks-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -390,5 +405,9 @@ onMounted(async () => {
   color: #303133; font-weight: 600; margin-top: 2px;
 }
 
-.pager { margin-top: 14px; text-align: right; }
+.pager {
+  flex: 0 0 auto;
+  margin-top: 14px;
+  text-align: right;
+}
 </style>
