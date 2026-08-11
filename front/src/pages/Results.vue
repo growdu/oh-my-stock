@@ -288,9 +288,9 @@ onMounted(async () => {
   margin-bottom: 8px;
 }
 .pcard-name {
-  font-size: 16px; font-weight: 700; color: #1a1a1a;
+  font-size: 17px; font-weight: 800; color: #000;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.4px;
 }
 .board-tag {
   background: #ecf5ff !important;
@@ -299,7 +299,7 @@ onMounted(async () => {
 }
 
 .pcard-desc {
-  font-size: 12.5px; color: #555; line-height: 1.6;
+  font-size: 13px; color: #444; line-height: 1.65;
   margin: 0; flex: 1;
   display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
   overflow: hidden;
@@ -371,7 +371,7 @@ onMounted(async () => {
   padding: 0 4px;
 }
 .stocks-title {
-  margin: 0; font-size: 18px; font-weight: 700; color: #1a1a1a;
+  margin: 0; font-size: 19px; font-weight: 800; color: #000;
   display: flex; align-items: center; gap: 10px;
 }
 .stock-red-bar {
@@ -384,9 +384,10 @@ onMounted(async () => {
 .stocks-meta {
   font-size: 13px; color: #1d6fcf;
   background: #ecf5ff;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 12px;
   border: 1px solid #b3d8ff;
+  font-weight: 600;
 }
 
 .cards-stage { perspective: 1200px; }
@@ -422,13 +423,21 @@ onMounted(async () => {
 }
 
 .card-row1 {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 12px; color: #555;
+  display: flex; align-items: center; gap: 8px;
   transform: translateZ(6px);
 }
-.card-row1 .sym { font-weight: 700; color: #1a1a1a; }
+.card-row1 .sym {
+  font-size: 15px;
+  font-weight: 800;
+  color: #000;
+  letter-spacing: -0.3px;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+}
 .card-row1 .name {
-  color: #1a1a1a; font-weight: 600; max-width: 100px;
+  color: #000;
+  font-weight: 700;
+  font-size: 14px;
+  max-width: 130px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .card-row1 .market-tag {
@@ -436,32 +445,51 @@ onMounted(async () => {
   background: #ecf5ff !important;
   border-color: #b3d8ff !important;
   color: #1d6fcf !important;
+  font-weight: 600 !important;
 }
 
 .card-row2 {
   display: flex; align-items: baseline; justify-content: space-between;
-  margin: 8px 0 8px;
+  margin: 10px 0 10px;
   transform: translateZ(20px);
 }
-.card-row2 .price { font-size: 26px; font-weight: 800; color: #1a1a1a; letter-spacing: -0.5px; }
-.card-row2 .pct   { font-size: 14px; font-weight: 700; }
-.up   { color: #e63946; }                /* A股红涨（涨色统一） */
+.card-row2 .price {
+  font-size: 30px;
+  font-weight: 900;
+  color: #000;
+  letter-spacing: -0.8px;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+}
+.card-row2 .pct {
+  font-size: 17px;
+  font-weight: 800;
+}
+.up   { color: #e63946; }                /* A股红涨 */
 .down { color: #16a34a; }                /* A股绿跌 */
 
 .card-row3, .card-row4 {
   display: flex; justify-content: space-between;
   border-top: 1.5px dashed #d6e8ff;
-  padding-top: 6px;
-  font-size: 12px; color: #555;
+  padding-top: 8px;
+  margin-top: 8px;
   transform: translateZ(4px);
 }
-.card-row3 { margin-top: 6px; }
+.card-row3 { margin-top: 10px; }
 .card-row4 { transform: translateZ(10px); }
 .card-row3 .kv, .card-row4 .kv {
   display: flex; flex-direction: column; align-items: flex-start;
+  gap: 4px;
+}
+.card-row3 .kv span, .card-row4 .kv span {
+  font-size: 11px;
+  color: #888;
+  font-weight: 500;
 }
 .card-row3 .kv b, .card-row4 .kv b {
-  color: #1a1a1a; font-weight: 600; margin-top: 2px;
+  color: #000;
+  font-weight: 800;
+  font-size: 14px;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
 
 .pager {
