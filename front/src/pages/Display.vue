@@ -229,18 +229,18 @@ onMounted(async () => {
 
 .carousel-card {
   min-width: 0;
-  height: 170px;
-  padding: 12px 12px 10px;
-  border-radius: 12px;
+  height: 220px;                    /* 加大：从 170 → 220 */
+  padding: 14px 14px 12px;
+  border-radius: 14px;
   background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
   border: 1px solid #ebeef5;
-  box-shadow: 0 2px 6px rgba(0,0,0,.04);
+  box-shadow: 0 3px 10px rgba(0,0,0,.05);
   cursor: pointer;
   position: relative;
   transition:
-    transform .35s cubic-bezier(.4,0,.2,1),
+    transform .4s cubic-bezier(.4,0,.2,1),
     border-color .3s ease,
-    box-shadow .3s ease,
+    box-shadow .35s ease,
     background .3s ease;
   display: flex;
   flex-direction: column;
@@ -248,30 +248,30 @@ onMounted(async () => {
 }
 .carousel-card:hover {
   border-color: #b3d8ff;
-  box-shadow: 0 6px 18px rgba(64,158,255,.18);
-  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(64,158,255,.22);
+  transform: translateY(-4px);
 }
 .carousel-card.active {
-  transform: scale(1.08) translateY(-8px);
+  transform: scale(1.15) translateY(-14px);  /* 加大放大比例 + 浮起 */
   border-color: #409eff;
   background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
   box-shadow:
-    0 0 0 2px rgba(64,158,255,.3),
-    0 16px 40px rgba(64,158,255,.35);
+    0 0 0 3px rgba(64,158,255,.35),
+    0 22px 56px rgba(64,158,255,.42);
   z-index: 10;
 }
 
 .pcard-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .pcard-name {
-  font-size: 14px; font-weight: 700; color: #303133;
+  font-size: 16px; font-weight: 700; color: #303133;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
 }
 .pcard-tag { margin-bottom: 6px; }
 .pcard-desc {
-  font-size: 11.5px; color: #606266; line-height: 1.55;
+  font-size: 12.5px; color: #606266; line-height: 1.6;
   margin: 0; flex: 1;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;  /* 多 2 行 */
   overflow: hidden;
 }
 .pcard-foot {

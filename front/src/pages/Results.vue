@@ -284,18 +284,18 @@ onMounted(loadPresets)
   margin-bottom: 6px;
 }
 .pcard-name {
-  font-size: 14px; font-weight: 700; color: #303133;
+  font-size: 16px; font-weight: 700; color: #303133;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
 }
 .pcard-tag {
   margin-bottom: 6px;
 }
 .pcard-desc {
-  font-size: 11.5px; color: #606266; line-height: 1.55;
+  font-size: 12.5px; color: #606266; line-height: 1.6;
   margin: 0;
   flex: 1;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .pcard-foot {
