@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <!-- 8 个系统规则 grid（直接放在最外层 div） -->
+    <!-- 8 个系统规则 grid -->
     <div class="rules-section">
       <div class="carousel">
         <button class="carousel-arrow left" @click="prev" aria-label="上一条">‹</button>
@@ -14,14 +14,14 @@
           >
             <div class="pcard-head">
               <span class="pcard-name">{{ p.name }}</span>
-            </div>
-            <div class="pcard-tag">
-              <el-tag size="small" effect="plain">{{ boardSummary(p) }}</el-tag>
+              <el-tag size="small" effect="plain" class="board-tag">
+                {{ boardSummary(p) }}
+              </el-tag>
             </div>
             <div class="pcard-desc">{{ p.description }}</div>
             <div class="pcard-foot">
               <span class="pcard-id">{{ p.id }}</span>
-              <span class="pcard-hint">▸</span>
+              <span class="pcard-hint">{{ cache[p.id] ? '✓' : '…' }}</span>
             </div>
           </div>
         </div>
@@ -32,17 +32,20 @@
           v-for="(p, i) in presets"
           :key="p.id"
           class="dot"
-          :class="{ active: i === selectedIndex }"
+          :class="{ active: i === selectedIndex, cached: cache[p.id] }"
           :title="p.name"
           @click="selectByIndex(i)"
         />
       </div>
     </div>
 
-    <!-- 命中股票（直接放在最外层 div，无 el-card） -->
+    <!-- 命中股票 -->
     <div v-if="selected" class="stocks-section">
       <div class="stocks-header">
-        <h3 class="stocks-title">「{{ selected.name }}」命中结果</h3>
+        <h3 class="stocks-title">
+          <span class="stock-red-bar"></span>
+          「{{ selected.name }}」命中结果
+        </h3>
         <span class="stocks-meta">共 {{ total }} 只<span v-if="tradeDate"> · {{ tradeDate }}</span></span>
       </div>
 
@@ -99,11 +102,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { listPresets, runPreset } from '@/utils/api/presets'
+import { listPresets } from '@/utils/api/presets'
 import { ElMessage } from 'element-plus'
 import { useCard3D } from '@/composables/useCard3D'
+import { usePresetCache } from '@/composables/usePresetCache'
 
 const { onTiltMove, onTiltLeave } = useCard3D({ max: 9 })
+const { cache, fetchPage, preloadAll, invalidate } = usePresetCache(8)
 
 const presets       = ref([])
 const selected      = ref(null)
@@ -157,23 +162,36 @@ const next = () => {
   syncSelected()
 }
 
-const syncSelected = () => {
+// 切换规则：优先读缓存，无缓存才 fetch
+const syncSelected = async () => {
   const p = presets.value[selectedIndex.value]
   if (!p) return
   selectedId.value = p.id
   selected.value  = p
   page.value      = 1
-  fetchRows()
+
+  if (cache[p.id]) {
+    // 命中缓存：瞬时切换，无 loading 闪烁
+    const c = cache[p.id]
+    rows.value      = c.rows
+    total.value     = c.total
+    tradeDate.value = c.tradeDate
+    loading.value   = false
+  } else {
+    // 未缓存：fetch 首页
+    await fetchRows(1)
+  }
 }
 
-const fetchRows = async () => {
+// 真正发起请求（首次 / 翻页）
+const fetchRows = async (pageNum) => {
   if (!selectedId.value) return
   loading.value = true
   try {
-    const res = await runPreset(selectedId.value, page.value, pageSize.value)
-    rows.value      = res.data?.data || []
-    total.value     = res.data?.total || 0
-    tradeDate.value = rows.value[0]?.trade_date || ''
+    const result = await fetchPage(selectedId.value, pageNum)
+    rows.value      = result.rows
+    total.value     = result.total
+    tradeDate.value = result.tradeDate
   } catch (e) {
     rows.value = []
     total.value = 0
@@ -182,7 +200,7 @@ const fetchRows = async () => {
   }
 }
 
-const onPage = (p) => { page.value = p; fetchRows() }
+const onPage = (p) => { page.value = p; fetchRows(p) }
 
 onMounted(async () => {
   try {
@@ -190,7 +208,9 @@ onMounted(async () => {
     presets.value = res.data?.data || []
     if (presets.value.length) {
       selectedIndex.value = 0
-      syncSelected()
+      await syncSelected()
+      // 后台预加载所有规则的首页（已缓存的自动跳过）
+      preloadAll(presets.value)
     }
   } catch (e) {
     ElMessage.error('获取系统规则失败')
@@ -199,6 +219,14 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* =========================================================
+   配色方案（红色主题，呼应 A 股"红涨绿跌"惯例）
+   - 主色：涨 #e63946 / 跌 #16a34a
+   - 选中卡片：红色高亮
+   - 整体减少灰色使用
+   ========================================================= */
+:root { /* fall back if not in global */ }
+
 .page {
   padding: 16px;
   height: 100vh;
@@ -206,9 +234,10 @@ onMounted(async () => {
   flex-direction: column;
   box-sizing: border-box;
   overflow: hidden;
+  background: #fff5f5;   /* 整页极浅红背景，呼应主题 */
 }
 
-/* ============ 8 卡 grid 全可见 + 选中高亮放大 ============ */
+/* ============ 8 卡 grid 全可见 + 选中红色高亮放大 ============ */
 .rules-section {
   flex: 0 0 auto;
   padding: 16px 0 8px;
@@ -229,12 +258,12 @@ onMounted(async () => {
 
 .carousel-card {
   min-width: 0;
-  height: 220px;                    /* 加大：从 170 → 220 */
+  height: 220px;
   padding: 14px 14px 12px;
   border-radius: 14px;
-  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
-  border: 1px solid #ebeef5;
-  box-shadow: 0 3px 10px rgba(0,0,0,.05);
+  background: #ffffff;
+  border: 1.5px solid #ffe0e0;        /* 浅红边框替代灰色 */
+  box-shadow: 0 3px 10px rgba(230,57,70,.06);
   cursor: pointer;
   position: relative;
   transition:
@@ -247,61 +276,73 @@ onMounted(async () => {
   overflow: hidden;
 }
 .carousel-card:hover {
-  border-color: #b3d8ff;
-  box-shadow: 0 8px 22px rgba(64,158,255,.22);
+  border-color: #ffb4b4;
+  box-shadow: 0 8px 22px rgba(230,57,70,.18);
   transform: translateY(-4px);
 }
+/* 选中卡片：红色高亮 + 更大放大 */
 .carousel-card.active {
-  transform: scale(1.15) translateY(-14px);  /* 加大放大比例 + 浮起 */
-  border-color: #409eff;
-  background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
+  transform: scale(1.15) translateY(-14px);
+  border-color: #e63946;
+  background: linear-gradient(180deg, #ffffff 0%, #fff5f5 100%);
   box-shadow:
-    0 0 0 3px rgba(64,158,255,.35),
-    0 22px 56px rgba(64,158,255,.42);
+    0 0 0 3px rgba(230,57,70,.25),
+    0 22px 56px rgba(230,57,70,.35);
   z-index: 10;
 }
 
-.pcard-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.pcard-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 8px;
+}
 .pcard-name {
-  font-size: 16px; font-weight: 700; color: #303133;
+  font-size: 16px; font-weight: 700; color: #1a1a1a;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   letter-spacing: -0.3px;
 }
-.pcard-tag { margin-bottom: 6px; }
+.board-tag {
+  background: #fff0f0 !important;
+  border-color: #ffd0d0 !important;
+  color: #c1292e !important;
+}
+
 .pcard-desc {
-  font-size: 12.5px; color: #606266; line-height: 1.6;
+  font-size: 12.5px; color: #555; line-height: 1.6;
   margin: 0; flex: 1;
-  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;  /* 多 2 行 */
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .pcard-foot {
   display: flex; justify-content: space-between; align-items: center;
-  border-top: 1px dashed #ebeef5; padding-top: 4px;
-  font-size: 10px;
+  border-top: 1.5px dashed #ffd0d0;   /* 浅红虚线替代灰色 */
+  padding-top: 6px;
+  font-size: 11px;
   margin-top: 6px;
 }
-.pcard-id   { color: #c0c4cc; font-family: monospace; }
-.pcard-hint { color: #409eff; opacity: 0; transition: opacity .25s; font-size: 14px; }
-.carousel-card.active .pcard-hint { opacity: 1; }
+.pcard-id   { color: #999; font-family: monospace; }
+.pcard-hint { color: #16a34a; font-weight: 700; font-size: 14px; }
+.carousel-card.active .pcard-hint { color: #e63946; }
 
 .carousel-arrow {
   position: absolute;
   top: 50%; transform: translateY(-50%);
-  width: 32px; height: 32px;
+  width: 36px; height: 36px;
   border-radius: 50%;
-  border: 1px solid #dcdfe6;
+  border: 1.5px solid #ffd0d0;
   background: rgba(255,255,255,.95);
-  color: #606266;
-  font-size: 18px; line-height: 1;
+  color: #c1292e;
+  font-size: 20px; line-height: 1;
   cursor: pointer;
   z-index: 20;
   transition: all .25s ease;
-  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+  box-shadow: 0 2px 8px rgba(230,57,70,.12);
 }
 .carousel-arrow:hover {
-  border-color: #409eff;
-  color: #409eff;
-  box-shadow: 0 4px 12px rgba(64,158,255,.30);
+  border-color: #e63946;
+  color: #e63946;
+  background: #fff5f5;
+  box-shadow: 0 4px 14px rgba(230,57,70,.30);
   transform: translateY(-50%) scale(1.1);
 }
 .carousel-arrow.left  { left: 0px; }
@@ -309,19 +350,21 @@ onMounted(async () => {
 
 .carousel-dots {
   display: flex; justify-content: center; gap: 8px;
-  margin-top: 12px;
+  margin-top: 14px;
 }
 .dot {
   width: 8px; height: 8px; border-radius: 50%;
-  background: #dcdfe6;
+  background: #ffd0d0;
   cursor: pointer;
   transition: all .3s cubic-bezier(.4,0,.2,1);
 }
-.dot:hover { background: #b3d8ff; }
+.dot:hover { background: #ffb4b4; }
+.dot.cached { background: #ffb4b4; }    /* 已缓存的圆点更深一点 */
 .dot.active {
-  background: #409eff;
-  width: 24px;
+  background: #e63946;
+  width: 26px;
   border-radius: 4px;
+  box-shadow: 0 0 8px rgba(230,57,70,.5);
 }
 
 /* ============ 命中股票 ============ */
@@ -333,12 +376,28 @@ onMounted(async () => {
 }
 .stocks-header {
   flex: 0 0 auto;
-  display: flex; align-items: baseline; gap: 12px;
-  margin-bottom: 12px;
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 14px;
   padding: 0 4px;
 }
-.stocks-title { margin: 0; font-size: 16px; font-weight: 700; color: #303133; }
-.stocks-meta  { font-size: 12px; color: #909399; }
+.stocks-title {
+  margin: 0; font-size: 18px; font-weight: 700; color: #1a1a1a;
+  display: flex; align-items: center; gap: 10px;
+}
+.stock-red-bar {
+  display: inline-block;
+  width: 4px; height: 20px;
+  background: #e63946;
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(230,57,70,.4);
+}
+.stocks-meta {
+  font-size: 13px; color: #c1292e;
+  background: #fff0f0;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid #ffd0d0;
+}
 
 .cards-stage { perspective: 1200px; }
 .stocks-grid {
@@ -355,54 +414,64 @@ onMounted(async () => {
 
 .stock-card {
   position: relative;
-  border: 1px solid #ebeef5;
-  border-radius: 10px;
+  border: 1.5px solid #ffe0e0;          /* 浅红边 */
+  border-radius: 12px;
   padding: 14px;
-  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  background: #ffffff;
   transform-style: preserve-3d;
   will-change: transform, box-shadow;
 }
 .stock-card::before {
   content: ''; position: absolute; inset: 0;
-  border-radius: 10px; pointer-events: none;
-  background: radial-gradient(120% 80% at 0% 0%, rgba(64,158,255,.05), transparent 60%);
+  border-radius: 12px; pointer-events: none;
+  background: radial-gradient(120% 80% at 0% 0%, rgba(230,57,70,.06), transparent 60%);
+}
+.stock-card:hover {
+  border-color: #ffb4b4;
+  box-shadow: 0 6px 18px rgba(230,57,70,.15);
 }
 
 .card-row1 {
   display: flex; align-items: center; gap: 6px;
-  font-size: 12px; color: #606266;
+  font-size: 12px; color: #555;
   transform: translateZ(6px);
 }
-.card-row1 .sym { font-weight: 700; color: #303133; }
+.card-row1 .sym { font-weight: 700; color: #1a1a1a; }
 .card-row1 .name {
-  color: #303133; font-weight: 600; max-width: 100px;
+  color: #1a1a1a; font-weight: 600; max-width: 100px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.card-row1 .market-tag { margin-left: auto; }
+.card-row1 .market-tag {
+  margin-left: auto;
+  background: #fff0f0 !important;
+  border-color: #ffd0d0 !important;
+  color: #c1292e !important;
+}
 
 .card-row2 {
   display: flex; align-items: baseline; justify-content: space-between;
-  margin: 8px 0 8px;
+  margin: 8px  0 8px;
   transform: translateZ(20px);
 }
-.card-row2 .price { font-size: 24px; font-weight: 800; color: #303133; letter-spacing: -0.5px; }
+.card-row2 .price { font-size: 26px; font-weight: 800; color: #1a1a1a; letter-spacing: -0.5px; }
 .card-row2 .pct   { font-size: 14px; font-weight: 700; }
-.up   { color: #c0392b; }
-.down { color: #27ae60; }
+.up   { color: #e63946; }                /* A股红涨 */
+.down { color: #16a34a; }                /* A股绿跌 */
 
 .card-row3, .card-row4 {
   display: flex; justify-content: space-between;
-  border-top: 1px dashed #ebeef5; padding-top: 6px;
-  font-size: 12px; color: #606266;
+  border-top: 1.5px dashed #ffd0d0;       /* 浅红虚线 */
+  padding-top: 6px;
+  font-size: 12px; color: #555;
   transform: translateZ(4px);
 }
 .card-row3 { margin-top: 6px; }
-.card-row4 { transform: translateZ(10px); border-top-color: #d9ecff; }
+.card-row4 { transform: translateZ(10px); }
 .card-row3 .kv, .card-row4 .kv {
   display: flex; flex-direction: column; align-items: flex-start;
 }
 .card-row3 .kv b, .card-row4 .kv b {
-  color: #303133; font-weight: 600; margin-top: 2px;
+  color: #1a1a1a; font-weight: 600; margin-top: 2px;
 }
 
 .pager {
