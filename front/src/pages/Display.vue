@@ -513,7 +513,7 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(2, 1fr);
-  gap: 14px;
+  gap: 16px;
   min-height: 0;
 }
 @media (max-width: 1280px) { .stocks-grid { grid-template-columns: repeat(3, 1fr); } }
@@ -524,11 +524,12 @@ onMounted(async () => {
   position: relative;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
-  padding: 14px 16px 14px 16px;
+  padding: 16px 18px;
   background: #ffffff;
   overflow: hidden;
   transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
   box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  display: flex; flex-direction: column;
 }
 .stock-card::after {
   content: '';
@@ -555,56 +556,60 @@ onMounted(async () => {
   border-bottom: 1px dashed #f3f4f6;
 }
 .card-header .sym {
-  font-size: 18px; font-weight: 800; color: #111;
+  font-size: 20px; font-weight: 800; color: #111;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
-  letter-spacing: -0.4px;
+  letter-spacing: -0.5px;
 }
 .card-header .name {
-  font-size: 15px; color: #333; font-weight: 700;
-  max-width: 130px;
+  font-size: 17px; color: #222; font-weight: 700;
+  max-width: 140px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .card-header .market-tag {
   margin-left: auto;
   font-weight: 700 !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
+  padding: 0 10px !important;
+  height: 24px !important;
+  line-height: 22px !important;
 }
 .card-header .market-tag.tag-STAR   { background: #fdf2f8 !important; border-color: #f9a8d4 !important; color: #be185d !important; }
 .card-header .market-tag.tag-CHINEXT{ background: #fff7ed !important; border-color: #fdba74 !important; color: #c2410c !important; }
 .card-header .market-tag.tag-MAIN   { background: #f0f9ff !important; border-color: #bae6fd !important; color: #0369a1 !important; }
 .card-header .market-tag.tag-OTHER  { background: #f3f4f6 !important; border-color: #d1d5db !important; color: #4b5563 !important; }
 .card-header .rank-no {
-  font-size: 13px; color: #999;
+  font-size: 14px; color: #999;
   font-family: 'SF Mono', Menlo, monospace;
   font-weight: 700;
 }
 
 .card-industry {
-  font-size: 12px;
-  color: #6b7280;
+  font-size: 14px;
+  color: #4b5563;
   font-weight: 600;
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.card-industry .ind-label { color: #9ca3af; margin-right: 4px; font-weight: 500; }
+.card-industry .ind-label { color: #9ca3af; margin-right: 6px; font-weight: 500; }
 
 .card-body {
+  flex: 1;
   display: flex;
-  gap: 14px;
+  gap: 16px;
   align-items: stretch;
 }
 
 .price-section {
   flex: 0 0 auto;
-  min-width: 132px;
-  padding-right: 14px;
+  min-width: 150px;
+  padding-right: 16px;
   border-right: 1px dashed #e5e7eb;
   display: flex; flex-direction: column; justify-content: center;
 }
 .price-section .price {
-  font-size: 36px;
+  font-size: 44px;
   font-weight: 900;
-  letter-spacing: -1px;
+  letter-spacing: -1.5px;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
   line-height: 1.05;
 }
@@ -612,22 +617,22 @@ onMounted(async () => {
 .price-section.down .price { color: #16a34a; }
 
 .pct-row {
-  display: flex; align-items: center; gap: 4px;
-  margin-top: 6px;
+  display: flex; align-items: center; gap: 5px;
+  margin-top: 8px;
   font-weight: 800;
 }
 .pct-row.up   { color: #e63946; }
 .pct-row.down { color: #16a34a; }
-.pct-row .arrow { font-size: 14px; }
+.pct-row .arrow { font-size: 16px; }
 .pct-row .pct {
-  font-size: 18px;
+  font-size: 22px;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
 
 .amt {
-  font-size: 14px; font-weight: 700;
+  font-size: 16px; font-weight: 700;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
-  margin-top: 4px;
+  margin-top: 5px;
 }
 .amt.up   { color: #e63946; }
 .amt.down { color: #16a34a; }
@@ -636,23 +641,23 @@ onMounted(async () => {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px 18px;
+  gap: 10px 20px;
   align-content: center;
 }
 .metric {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 8px;
-  font-size: 13px;
-  line-height: 1.45;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.4;
 }
 .metric span {
-  color: #6b7280;
+  color: #4b5563;
   font-weight: 500;
 }
 .metric b {
   color: #111;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 16px;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
 .metric b.up   { color: #e63946; }
