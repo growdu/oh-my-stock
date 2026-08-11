@@ -1,44 +1,52 @@
 <template>
   <div class="results-page">
-    <!-- 顶部：8 个系统规则 3D 轮播 -->
-    <el-card class="mb-4">
+    <!-- 顶部：8 个系统规则 grid（外置，无 el-card 包裹） -->
+    <div class="carousel-section">
       <div class="header">
         <div>
           <h2 class="title">选股结果</h2>
-          <span class="sub">点击下方卡片切换规则，箭头 / 圆点也可切换；当前居中的规则生效</span>
+          <span class="sub">点击下方卡片切换规则，箭头 / 圆点也可切换；当前选中规则会高亮放大</span>
         </div>
         <el-button size="small" @click="fetchRows" :loading="loading">刷新</el-button>
       </div>
 
-            <div class="carousel">
+      <div class="carousel">
         <button class="carousel-arrow left" @click="prev" aria-label="上一条">‹</button>
-        <div class="carousel-viewport" ref="viewportRef" @scroll.passive="onScroll">
-          <div class="carousel-track">
-            <div class="track-spacer"></div>
-            <div
-              v-for="(p, i) in presets"
-              :key="p.id"
-              class="carousel-card"
-              :class="{ active: i === selectedIndex }"
-              @click="scrollToIndex(i)"
-            >
-              <div class="pcard-head">
-                <span class="pcard-name">{{ p.name }}</span>
-                <el-tag size="small" effect="plain" class="board-tag">{{ boardSummary(p) }}</el-tag>
-              </div>
-              <div class="pcard-desc">{{ p.description }}</div>
-              <div class="pcard-foot">
-                <span class="pcard-id">{{ p.id }}</span>
-                <span class="pcard-hint">点击生效 ▸</span>
-              </div>
+        <div class="carousel-track">
+          <div
+            v-for="(p, i) in presets"
+            :key="p.id"
+            class="carousel-card"
+            :class="{ active: i === selectedIndex }"
+            @click="selectByIndex(i)"
+          >
+            <div class="pcard-head">
+              <span class="pcard-name">{{ p.name }}</span>
             </div>
-            <div class="track-spacer"></div>
+            <div class="pcard-tag">
+              <el-tag size="small" effect="plain">{{ boardSummary(p) }}</el-tag>
+            </div>
+            <div class="pcard-desc">{{ p.description }}</div>
+            <div class="pcard-foot">
+              <span class="pcard-id">{{ p.id }}</span>
+              <span class="pcard-hint">▸</span>
+            </div>
           </div>
         </div>
         <button class="carousel-arrow right" @click="next" aria-label="下一条">›</button>
       </div>
 
-      </el-card>
+      <div class="carousel-dots">
+        <span
+          v-for="(p, i) in presets"
+          :key="p.id"
+          class="dot"
+          :class="{ active: i === selectedIndex }"
+          :title="p.name"
+          @click="selectByIndex(i)"
+        />
+      </div>
+    </div>
 
     <!-- 命中股票卡片网格（3D 鼠标跟随倾斜 + 分层） -->
     <el-card v-if="selected">
@@ -148,46 +156,26 @@ const boardSummary = (p) => {
   return '全部'
 }
 
-// 横向滚动模式：监听 scroll 自动判定 selectedIndex；点击或箭头调用 scrollToIndex
-const viewportRef = ref(null)
+// grid 模式：所有 8 张卡片都可见，选中通过高亮 + scale 突出
+const selectByIndex = (i) => {
+  if (i === selectedIndex.value) return
+  selectedIndex.value = i
+  syncSelected()
+}
 
-const scrollToIndex = (i) => {
+const prev = () => {
   const total = presets.value.length
   if (!total) return
-  const wrapped = ((i % total) + total) % total
-  selectedIndex.value = wrapped
+  selectedIndex.value = (selectedIndex.value - 1 + total) % total
   syncSelected()
-  nextTick(() => {
-    const card = viewportRef.value?.querySelectorAll('.carousel-card')[wrapped]
-    if (card && typeof card.scrollIntoView === 'function') {
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
-    }
-  })
 }
 
-const onScroll = () => {
-  if (!viewportRef.value) return
-  const cards = viewportRef.value.querySelectorAll('.carousel-card')
-  if (!cards.length) return
-  const center = viewportRef.value.scrollLeft + viewportRef.value.clientWidth / 2
-  let closest = 0
-  let minDist = Infinity
-  cards.forEach((card, i) => {
-    const cardCenter = card.offsetLeft + card.offsetWidth / 2
-    const dist = Math.abs(cardCenter - center)
-    if (dist < minDist) {
-      minDist = dist
-      closest = i
-    }
-  })
-  if (closest !== selectedIndex.value) {
-    selectedIndex.value = closest
-    syncSelected()
-  }
+const next = () => {
+  const total = presets.value.length
+  if (!total) return
+  selectedIndex.value = (selectedIndex.value + 1) % total
+  syncSelected()
 }
-
-const prev = () => scrollToIndex(selectedIndex.value - 1)
-const next = () => scrollToIndex(selectedIndex.value + 1)
 
 const syncSelected = () => {
   const p = presets.value[selectedIndex.value]
@@ -242,44 +230,45 @@ onMounted(loadPresets)
 .title { margin: 0; }
 .sub  { color: #909399; font-size: 12px; margin-left: 8px; }
 
-/* ============ 横向滚动 carousel ============ */
+/* ============ 规则选择条（8 卡 grid 全可见 + 选中高亮放大） ============ */
+.carousel-section {
+  padding: 16px 16px 8px;
+  margin-bottom: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: 12px;
+  border: 1px solid #ebeef5;
+  box-shadow: 0 2px 10px rgba(0,0,0,.04);
+}
+.section-head {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: 12px;
+}
+.section-title { margin: 0; font-size: 18px; font-weight: 700; color: #303133; }
+.section-sub  { font-size: 12px; color: #909399; }
+
 .carousel {
   position: relative;
-  padding: 0 36px;        /* 给左右箭头留位置 */
+  padding: 0 36px;
 }
-.carousel-viewport {
-  overflow-x: auto;
-  overflow-y: visible;
-  scroll-snap-type: x mandatory;
-  scroll-behavior: smooth;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  padding: 20px 0;
-}
-.carousel-viewport::-webkit-scrollbar { display: none; }
-
+/* 8 卡 grid 布局，所有卡片都可见 */
 .carousel-track {
-  display: flex;
-  gap: 18px;
-  width: max-content;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 12px;
 }
-.track-spacer {
-  /* 让第一张和最后一张卡片能滚到 viewport 正中央对齐 */
-  flex: 0 0 calc(50vw - 140px);
-  min-width: 60px;
-}
+@media (max-width: 1280px) { .carousel-track { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 700px)  { .carousel-track { grid-template-columns: repeat(2, 1fr); } }
 
 .carousel-card {
-  flex: 0 0 240px;
-  height: 200px;
-  padding: 16px 18px;
-  border-radius: 14px;
+  min-width: 0;
+  height: 170px;
+  padding: 12px 12px 10px;
+  border-radius: 12px;
   background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
   border: 1px solid #ebeef5;
-  box-shadow: 0 4px 12px rgba(0,0,0,.06);
+  box-shadow: 0 2px 6px rgba(0,0,0,.04);
   cursor: pointer;
-  scroll-snap-align: center;
-  scroll-snap-stop: always;
+  position: relative;
   transition:
     transform .35s cubic-bezier(.4,0,.2,1),
     border-color .3s ease,
@@ -287,76 +276,80 @@ onMounted(loadPresets)
     background .3s ease;
   display: flex;
   flex-direction: column;
-  user-select: none;
+  overflow: hidden;
 }
 .carousel-card:hover {
   border-color: #b3d8ff;
   box-shadow: 0 6px 18px rgba(64,158,255,.18);
   transform: translateY(-2px);
 }
+/* 选中卡片：scale + 上浮 + 蓝边 + 蓝光阴影 — 视觉上"突出/在中间" */
 .carousel-card.active {
+  transform: scale(1.08) translateY(-8px);
   border-color: #409eff;
   background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
   box-shadow:
     0 0 0 2px rgba(64,158,255,.3),
-    0 14px 36px rgba(64,158,255,.35);
-  transform: translateY(-4px) scale(1.04);
+    0 16px 40px rgba(64,158,255,.35);
+  z-index: 10;
 }
 
 .pcard-head {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 8px;
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 6px;
 }
 .pcard-name {
-  font-size: 17px; font-weight: 700; color: #303133;
+  font-size: 14px; font-weight: 700; color: #303133;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 160px;
   letter-spacing: -0.2px;
 }
+.pcard-tag {
+  margin-bottom: 6px;
+}
 .pcard-desc {
-  font-size: 12.5px; color: #606266; line-height: 1.55;
-  margin: 10px 0; flex: 1;
+  font-size: 11.5px; color: #606266; line-height: 1.55;
+  margin: 0;
+  flex: 1;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .pcard-foot {
   display: flex; justify-content: space-between; align-items: center;
-  border-top: 1px dashed #ebeef5; padding-top: 6px;
+  border-top: 1px dashed #ebeef5; padding-top: 4px;
+  font-size: 10px;
+  margin-top: 6px;
 }
-.pcard-id   { color: #c0c4cc; font-size: 11px; font-family: monospace; }
-.pcard-hint { font-size: 11px; color: #409eff; opacity: 0; transition: opacity .25s; }
+.pcard-id   { color: #c0c4cc; font-family: monospace; }
+.pcard-hint { color: #409eff; opacity: 0; transition: opacity .25s; font-size: 14px; }
 .carousel-card.active .pcard-hint { opacity: 1; }
 
 /* 左右箭头 */
 .carousel-arrow {
   position: absolute;
   top: 50%; transform: translateY(-50%);
-  width: 36px; height: 36px;
+  width: 32px; height: 32px;
   border-radius: 50%;
   border: 1px solid #dcdfe6;
-  background: rgba(255,255,255,.92);
+  background: rgba(255,255,255,.95);
   color: #606266;
-  font-size: 22px; line-height: 1;
+  font-size: 18px; line-height: 1;
   cursor: pointer;
-  z-index: 50;
+  z-index: 20;
   transition: all .25s ease;
-  backdrop-filter: blur(6px);
-  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
 }
 .carousel-arrow:hover {
   border-color: #409eff;
   color: #409eff;
-  box-shadow: 0 4px 14px rgba(64,158,255,.30);
-  transform: translateY(-50%) scale(1.08);
+  box-shadow: 0 4px 12px rgba(64,158,255,.30);
+  transform: translateY(-50%) scale(1.1);
 }
-.carousel-arrow.left  { left: 4px; }
-.carousel-arrow.right { right: 4px; }
+.carousel-arrow.left  { left: 0px; }
+.carousel-arrow.right { right: 0px; }
 
 .carousel-dots {
   display: flex; justify-content: center; gap: 8px;
-  margin-top: 14px;
-  position: relative;
-  z-index: 5;
+  margin-top: 12px;
 }
 .dot {
   width: 8px; height: 8px; border-radius: 50%;
