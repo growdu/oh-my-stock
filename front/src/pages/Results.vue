@@ -157,24 +157,23 @@ const boardSummary = (p) => {
   return '全部'
 }
 
-/* ============ 3D 轮播：环形索引 + 弧形 transform ============ */
 const wrapDelta = (d, total) => {
-  // 把 distance 折叠到 [-total/2, total/2]
   if (d >  total / 2) return d - total
   if (d < -total / 2) return d + total
   return d
 }
 
+// Apple Coverflow 风格：35° 倾斜 + 100px 纵深 + 145px 横向扇开 + 0.88^ad 指数缩放
 const cardStyle = (i) => {
   const total = presets.value.length
   if (!total) return {}
   const d  = wrapDelta(i - selectedIndex.value, total)
   const ad = Math.abs(d)
-  const angle = d * 38          // 每偏离一格倾斜 38°
-  const tz    = -ad * 90        // 越远越往后
-  const tx    = d * 135         // 左右水平偏移
-  const scale = Math.max(0.55, 1 - ad * 0.18)
-  const opacity = ad > 3 ? 0 : (1 - ad * 0.32)
+  const angle = d * 35
+  const tz    = -ad * 100
+  const tx    = d * 145
+  const scale = Math.pow(0.88, ad)
+  const opacity = ad > 3 ? 0 : Math.max(0, 1 - ad * 0.32)
   return {
     transform: `rotateY(${angle}deg) translateZ(${tz}px) translateX(${tx}px) scale(${scale})`,
     opacity,
@@ -182,6 +181,7 @@ const cardStyle = (i) => {
     pointerEvents: ad > 2 ? 'none' : 'auto',
   }
 }
+
 
 const selectByIndex = (i) => {
   if (i === selectedIndex.value) return
@@ -256,12 +256,27 @@ onMounted(loadPresets)
 .title { margin: 0; }
 .sub  { color: #909399; font-size: 12px; margin-left: 8px; }
 
-/* ============ 3D 轮播场景 ============ */
+/* ============ Apple Coverflow 3D 轮播 ============ */
 .carousel {
   position: relative;
-  perspective: 1400px;
-  height: 220px;
-  margin: 0 auto 6px;
+  perspective: 1200px;
+  perspective-origin: 50% 45%;
+  height: 320px;          /* 容纳镜面倒影 */
+  margin: 4px auto 8px;
+}
+/* 弧形地板阴影 */
+.carousel::before {
+  content: '';
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  height: 36px;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,.18) 0%, rgba(0,0,0,0) 70%);
+  filter: blur(10px);
+  z-index: 1;
+  pointer-events: none;
 }
 .carousel-track {
   position: relative;
@@ -271,33 +286,44 @@ onMounted(loadPresets)
 }
 .carousel-item {
   position: absolute;
-  top: 0;
+  top: 30px;
   left: 50%;
   width: 280px;
-  height: 200px;
+  height: 220px;
   margin-left: -140px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: #fff;
-  border: 1px solid #ebeef5;
-  box-shadow: 0 4px 14px rgba(0,0,0,.06);
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f7fa 100%);
+  border: 1px solid rgba(0,0,0,.05);
+  box-shadow:
+    0 1px 1px rgba(0,0,0,.06),
+    0 6px 12px rgba(0,0,0,.08),
+    0 14px 36px rgba(0,0,0,.12);
   cursor: pointer;
-  transition: transform .65s cubic-bezier(.2,.7,.3,1),
-              opacity .55s ease,
-              box-shadow .35s ease,
-              border-color .35s ease;
   display: flex;
   flex-direction: column;
+  /* 镜面倒影（webkit） */
+  -webkit-box-reflect: below 14px
+    linear-gradient(transparent 50%, rgba(255,255,255,.35) 78%, rgba(0,0,0,.18));
+  transition:
+    transform .75s cubic-bezier(.22, .8, .35, 1.05),
+    opacity .55s ease,
+    box-shadow .35s ease,
+    border-color .35s ease;
 }
 .carousel-item:hover {
-  box-shadow: 0 10px 28px rgba(64,158,255,.22);
+  box-shadow:
+    0 1px 1px rgba(0,0,0,.06),
+    0 8px 16px rgba(0,0,0,.10),
+    0 18px 44px rgba(64,158,255,.22);
 }
 .carousel-item.active {
-  border-color: #409eff;
-  background: linear-gradient(180deg, #ffffff 0%, #f5faff 100%);
+  border-color: rgba(64,158,255,.45);
+  background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
   box-shadow:
-    0 14px 36px rgba(64,158,255,.30),
-    0 0 0 1px rgba(64,158,255,.25) inset;
+    0 1px 1px rgba(0,0,0,.06),
+    0 14px 28px rgba(64,158,255,.28),
+    0 28px 60px rgba(64,158,255,.35);
 }
 
 .pcard-head {
@@ -305,14 +331,14 @@ onMounted(loadPresets)
   gap: 8px;
 }
 .pcard-name {
-  font-size: 16px; font-weight: 700; color: #303133;
+  font-size: 17px; font-weight: 700; color: #303133;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   max-width: 180px;
+  letter-spacing: -0.2px;
 }
 .pcard-desc {
-  font-size: 12px; color: #606266; line-height: 1.5;
-  margin: 8px 0;
-  flex: 1;
+  font-size: 12.5px; color: #606266; line-height: 1.55;
+  margin: 10px 0; flex: 1;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -324,45 +350,47 @@ onMounted(loadPresets)
 .pcard-hint { font-size: 11px; color: #409eff; opacity: 0; transition: opacity .25s; }
 .carousel-item.active .pcard-hint { opacity: 1; }
 
-/* 左右箭头 */
+/* 左右箭头（Coverflow 玻璃态） */
 .carousel-arrow {
   position: absolute;
   top: 50%; transform: translateY(-50%);
-  width: 36px; height: 36px;
+  width: 40px; height: 40px;
   border-radius: 50%;
   border: 1px solid #dcdfe6;
   background: rgba(255,255,255,.92);
   color: #606266;
-  font-size: 22px; line-height: 1;
+  font-size: 24px; line-height: 1;
   cursor: pointer;
   z-index: 50;
   transition: all .25s ease;
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
 }
 .carousel-arrow:hover {
   border-color: #409eff;
   color: #409eff;
-  box-shadow: 0 4px 12px rgba(64,158,255,.22);
+  box-shadow: 0 4px 14px rgba(64,158,255,.30);
   transform: translateY(-50%) scale(1.08);
 }
-.carousel-arrow.left  { left: 4px; }
-.carousel-arrow.right { right: 4px; }
+.carousel-arrow.left  { left: 12px; }
+.carousel-arrow.right { right: 12px; }
 
-/* 圆点 */
 .carousel-dots {
   display: flex; justify-content: center; gap: 8px;
-  margin-top: 10px;
+  margin-top: 14px;
+  position: relative;
+  z-index: 5;
 }
 .dot {
   width: 8px; height: 8px; border-radius: 50%;
   background: #dcdfe6;
   cursor: pointer;
-  transition: all .25s ease;
+  transition: all .3s cubic-bezier(.4,0,.2,1);
 }
 .dot:hover { background: #b3d8ff; }
 .dot.active {
   background: #409eff;
-  width: 22px;
+  width: 24px;
   border-radius: 4px;
 }
 
