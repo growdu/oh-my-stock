@@ -107,7 +107,7 @@ const selectedId = ref('')
 const rows       = ref([])
 const total      = ref(0)
 const page       = ref(1)
-const pageSize   = ref(12)
+const pageSize   = ref(8)
 const loading    = ref(false)
 const tradeDate  = ref('')
 

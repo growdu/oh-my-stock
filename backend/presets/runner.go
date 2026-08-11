@@ -24,6 +24,7 @@ type RunResult struct {
 	PETTM         float64 `json:"pe_ttm"`
 	PB            float64 `json:"pb"`
 	TradeDate     string  `json:"trade_date"`
+	BoardPriority int     `json:"board_priority"`
 }
 
 // Run 在 stock_history_mv 上执行预设规则表达式。
@@ -130,12 +131,18 @@ SELECT
   latest.open, latest.close, latest.high, latest.low,
   latest.change_percent, latest.volume, latest.turnover_rate, latest.net_amount,
   latest.pettm AS pe_ttm, latest.pb,
-  TO_CHAR(latest.trade_date, 'YYYY-MM-DD') AS trade_date
+  TO_CHAR(latest.trade_date, 'YYYY-MM-DD') AS trade_date,
+  CASE
+    WHEN latest.symbol LIKE '300%%' OR latest.symbol LIKE '301%%' THEN 1  -- 创业板
+    WHEN latest.symbol LIKE '688%%' THEN 2                                -- 科创板
+    WHEN latest.symbol LIKE '60%%' OR latest.symbol LIKE '00%%' OR latest.symbol LIKE '20%%' THEN 3  -- 主板
+    ELSE 4
+  END AS board_priority
 FROM latest
 LEFT JOIN stock_basic_info basic ON basic.symbol = latest.symbol
 WHERE ` + "1=1" + `
   AND %s
-ORDER BY latest.change_percent DESC, latest.symbol ASC
+ORDER BY board_priority ASC, latest.change_percent DESC, latest.symbol ASC
 LIMIT %d OFFSET %d`
 
 	q := fmt.Sprintf(baseSQL, compiled.Where, pageSize, (page-1)*pageSize)
