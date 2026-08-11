@@ -13,11 +13,11 @@
             @click="selectByIndex(i)"
           >
             <div class="pcard-head">
-              <span class="pcard-name">{{ p.name }}</span>
               <el-tag size="small" effect="plain" class="board-tag">
                 {{ boardSummary(p) }}
               </el-tag>
             </div>
+            <div class="pcard-name">{{ p.name }}</div>
             <div class="pcard-desc">{{ p.description }}</div>
             <div class="pcard-foot">
               <span class="pcard-id">{{ p.id }}</span>
@@ -283,25 +283,39 @@ onMounted(async () => {
 }
 
 .pcard-head {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 6px;
+  display: flex; align-items: flex-start;
   margin-bottom: 8px;
-}
-.pcard-name {
-  font-size: 17px; font-weight: 800; color: #000;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  letter-spacing: -0.4px;
+  min-height: 20px;
 }
 .board-tag {
   background: #ecf5ff !important;
   border-color: #b3d8ff !important;
   color: #1d6fcf !important;
+  font-weight: 600 !important;
+  font-size: 10px !important;
+  height: 18px !important;
+  line-height: 16px !important;
+  padding: 0 7px !important;
+}
+
+.pcard-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: #000;
+  letter-spacing: -0.4px;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .pcard-desc {
-  font-size: 13px; color: #444; line-height: 1.65;
+  font-size: 12.5px; color: #444; line-height: 1.6;
   margin: 0; flex: 1;
-  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .pcard-foot {
