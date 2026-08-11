@@ -1,21 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import LoginPage    from '@/pages/LoginPage.vue'
-import HomePage     from '@/pages/HomePage.vue'
-import Presets      from '@/pages/Presets.vue'
-import Favorites    from '@/components/Favorites.vue'
-import Rules        from '@/components/Rules.vue'
-import HotStocks    from '@/components/HotStocks.vue'
-import StockDailyTable from '@/components/StockDailyTable.vue'
+import LoginPage from '@/pages/LoginPage.vue'
+import Results   from '@/pages/Results.vue'
+import Rules     from '@/components/Rules.vue'
 
 const routes = [
   { path: '/login', name: 'Login', component: LoginPage },
   { path: '/',      redirect: '/home' },
-  { path: '/home',     name: 'Home',     component: HomePage,     meta: { requiresAuth: true } },
-  { path: '/hot',      name: 'HotStocks',component: HotStocks,    meta: { requiresAuth: true } },
-  { path: '/daily',    name: 'Daily',    component: StockDailyTable, meta: { requiresAuth: true } },
-  { path: '/favorites',name: 'Favorites',component: Favorites,    meta: { requiresAuth: true } },
-  { path: '/rules',    name: 'Rules',    component: Rules,        meta: { requiresAuth: true } },
-  { path: '/presets',  name: 'Presets',  component: Presets,      meta: { requiresAuth: true } },
+  { path: '/home',  name: 'Results', component: Results, meta: { requiresAuth: true } },
+  { path: '/rules', name: 'Rules',   component: Rules,   meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({

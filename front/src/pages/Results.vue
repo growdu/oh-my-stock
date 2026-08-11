@@ -1,10 +1,13 @@
 <template>
-  <div class="presets-page">
-    <!-- 顶部 8 个默认策略卡片 -->
+  <div class="results-page">
+    <!-- 顶部：8 个系统规则卡片网格 -->
     <el-card class="mb-4">
       <div class="header">
-        <h2 class="title">系统默认策略</h2>
-        <span class="sub">点击下方任一预设卡片，查看当日命中股票</span>
+        <div>
+          <h2 class="title">选股结果</h2>
+          <span class="sub">选择下方任一系统规则，查看当日命中股票</span>
+        </div>
+        <el-button size="small" @click="fetchRows" :loading="loading">刷新</el-button>
       </div>
 
       <el-row :gutter="12">
@@ -39,13 +42,12 @@
         <div class="result-meta">
           <el-tag type="success">共 {{ total }} 只</el-tag>
           <span class="date-tip">{{ tradeDate }}</span>
-          <el-button size="small" @click="reload">刷新</el-button>
         </div>
       </div>
 
       <el-skeleton v-if="loading" :rows="4" animated />
 
-      <el-empty v-else-if="!rows.length" description="当前没有命中股票" />
+      <el-empty v-else-if="!rows.length" description="当前没有命中股票，可点击「拉取最新数据」填充缓存后再试" />
 
       <el-row v-else :gutter="12" class="result-grid">
         <el-col
@@ -53,7 +55,7 @@
           :key="s.symbol"
           :xs="24" :sm="12" :md="8" :lg="6" :xl="6"
         >
-          <div class="stock-card" @click="openChart(s)">
+          <div class="stock-card">
             <div class="card-row1">
               <span class="sym">{{ s.symbol }}</span>
               <span class="name" :title="s.name">{{ s.name }}</span>
@@ -130,10 +132,6 @@ const boardSummary = (p) => {
   return '全部'
 }
 
-const openChart = (s) => {
-  window.dispatchEvent(new CustomEvent('show-stock', { detail: s }))
-}
-
 const loadPresets = async () => {
   try {
     const res = await listPresets()
@@ -142,7 +140,7 @@ const loadPresets = async () => {
       selectPreset(presets.value[0])
     }
   } catch (e) {
-    ElMessage.error('获取默认策略失败')
+    ElMessage.error('获取系统规则失败')
   }
 }
 
@@ -169,20 +167,20 @@ const fetchRows = async () => {
   }
 }
 
-const onPage  = (p) => { page.value = p; fetchRows() }
-const reload  = ()    => fetchRows()
+const onPage = (p) => { page.value = p; fetchRows() }
 
 onMounted(loadPresets)
 </script>
 
 <style scoped>
-.presets-page { padding: 16px; }
+.results-page { padding: 16px; }
 .mb-4 { margin-bottom: 16px; }
 .header {
-  display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
 }
 .title { margin: 0; }
-.sub  { color: #909399; font-size: 12px; }
+.sub  { color: #909399; font-size: 12px; margin-left: 8px; }
 
 /* 预设卡 */
 .preset-card {
@@ -228,7 +226,6 @@ onMounted(loadPresets)
   padding: 12px;
   margin-bottom: 12px;
   background: #fff;
-  cursor: pointer;
   transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
 }
 .stock-card:hover {

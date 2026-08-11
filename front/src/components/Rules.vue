@@ -1,128 +1,138 @@
 <template>
-  <div class="p-4">
-    <!-- 我的自定义规则区 -->
+  <div class="rules-page">
+    <!-- 顶部：用户自定义规则卡片网格 -->
     <el-card class="mb-4">
-      <h2 class="title">我的选股规则</h2>
+      <div class="header">
+        <div>
+          <h2 class="title">规则管理</h2>
+          <span class="sub">点击「执行」查看该规则的命中股票；卡片右上角删除</span>
+        </div>
+        <el-button type="primary" @click="openCreate">+ 新增规则</el-button>
+      </div>
 
-      <el-alert type="info" :closable="false" class="mb-3" v-if="lastRunMsg">
-        {{ lastRunMsg }}
-      </el-alert>
+      <el-row v-if="rules.length" :gutter="12">
+        <el-col
+          v-for="r in rules"
+          :key="r.id"
+          :xs="24" :sm="12" :md="8" :lg="6" :xl="6"
+        >
+          <div class="rule-card">
+            <div class="rule-card-head">
+              <div class="rule-name">{{ r.rule_name }}</div>
+              <el-tag v-if="r._hits != null" :type="r._hits ? 'success' : 'info'" size="small">
+                命中 {{ r._hits ?? '-' }}
+              </el-tag>
+            </div>
+            <div class="rule-expr" :title="exprFull(r)">{{ exprFull(r) }}</div>
+            <div class="rule-foot">
+              <el-button size="small" type="primary" :loading="r._running" @click="runRuleNow(r)">执行</el-button>
+              <el-button size="small" type="danger" plain @click="deleteRuleItem(r.id)">删除</el-button>
+            </div>
+          </div>
+        </el-col>
+      </el-row>
 
-      <el-form :inline="true" :model="newRule" class="rule-form">
-        <el-form-item label="规则名">
-          <el-input v-model="newRule.rule_name" placeholder="如：连续3天上涨且主力净流入" />
-        </el-form-item>
-        <el-form-item label="规则表达式 (JSON)">
-          <el-input
-            v-model="newRule.rule_expressionStr"
-            type="textarea"
-            :rows="3"
-            style="min-width: 480px"
-            placeholder='{"change_percent": {"gt": 5}, "industry": {"in": ["银行"]}}'
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="addOrUpdateRule">保存规则</el-button>
-          <el-button @click="newRule = blankRule">清空</el-button>
-          <el-button type="success" plain @click="$router.push('/presets')">
-            使用系统默认策略 →
-          </el-button>
-        </el-form-item>
-      </el-form>
+      <el-empty v-else description="还没有自定义规则，点击右上角「新增规则」开始" />
     </el-card>
 
-    <!-- 自定义规则列表 -->
-    <el-card class="mb-4">
-      <el-table :data="rules" stripe style="width: 100%">
-        <el-table-column prop="rule_name"        label="规则名" />
-        <el-table-column                     label="表达式摘要" width="380">
-          <template #default="{ row }">
-            <code class="expr">{{ shortExpr(row.rule_expression) }}</code>
-          </template>
-        </el-table-column>
-        <el-table-column                     label="最近命中数" width="120">
-          <template #default="{ row }">
-            <el-tag v-if="row._hits != null" :type="row._hits ? 'success' : 'info'">
-              {{ row._hits ?? '-' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="320" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" @click="editRuleItem(row)">编辑</el-button>
-            <el-button size="small" type="primary" :loading="row._running" @click="runRuleNow(row)">执行</el-button>
-            <el-button size="small" type="danger"  @click="deleteRuleItem(row.id)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
-
-    <!-- 最近一次执行结果：卡片式 -->
-    <el-card v-if="lastRunResults.length" class="mt-4">
+    <!-- 命中股票卡片网格（执行后展示） -->
+    <el-card v-if="lastRunResults.length">
       <div class="result-header">
-        <h3 class="title">最近执行结果：{{ lastRunRuleName }}</h3>
+        <div>
+          <h3 class="title-inline">「{{ lastRunRuleName }}」命中结果</h3>
+          <span class="meta-tip" v-if="lastRunMsg">{{ lastRunMsg }}</span>
+        </div>
         <div class="result-meta">
           <el-tag type="success">共 {{ lastRunResults.length }} 只命中</el-tag>
           <span class="date-tip">{{ lastRunDate }}</span>
         </div>
       </div>
+
       <el-row :gutter="12" class="result-grid">
         <el-col
           v-for="s in lastRunResults"
           :key="s.symbol"
-          :xs="24" :sm="12" :md="8" :lg="6" :xl="4"
+          :xs="24" :sm="12" :md="8" :lg="6" :xl="6"
         >
-          <div class="stock-card" @click="openChart(s)">
+          <div class="stock-card">
             <div class="card-row1">
               <span class="sym">{{ s.symbol }}</span>
               <span class="name">{{ s.name }}</span>
-              <el-tag size="small" effect="plain" class="board">{{ s.industry || '—' }}</el-tag>
+              <el-tag size="small" effect="plain" class="market-tag">
+                {{ boardLabel(s) }}
+              </el-tag>
             </div>
             <div class="card-row2">
-              <span class="price">{{ fmt(s.current_price) }}</span>
+              <span class="price">{{ fmt(s.current_price ?? s.close) }}</span>
               <span :class="['pct', (s.change_percent ?? 0) >= 0 ? 'up' : 'down']">
                 {{ (s.change_percent ?? 0) >= 0 ? '+' : '' }}{{ fmt(s.change_percent) }}%
               </span>
             </div>
             <div class="card-row3">
-              <div class="kv"><span>净流入</span><b>{{ fmtMoney(s.net_inflow) }}</b></div>
               <div class="kv"><span>换手</span><b>{{ fmt(s.turnover_rate) }}%</b></div>
+              <div class="kv"><span>净流入(万)</span><b>{{ fmtW(s.net_inflow ?? s.net_amount) }}</b></div>
               <div class="kv"><span>PE</span><b>{{ fmt(s.pe_ttm) }}</b></div>
             </div>
           </div>
         </el-col>
       </el-row>
     </el-card>
+
+    <!-- 新增规则对话框 -->
+    <el-dialog v-model="createOpen" title="新增规则" width="640">
+      <el-form :model="newRule" label-width="100px">
+        <el-form-item label="规则名">
+          <el-input v-model="newRule.rule_name" placeholder="如：连续3天上涨且主力净流入" />
+        </el-form-item>
+        <el-form-item label="规则表达式">
+          <el-input
+            v-model="newRule.rule_expressionStr"
+            type="textarea"
+            :rows="6"
+            placeholder='示例: {"all":[{"type":"field_gt","name":"change_percent","value":5},{"type":"board_in","boards":["创业板"]}],"exclude":[{"type":"is_st"}]}'
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createOpen = false">取消</el-button>
+        <el-button type="primary" @click="submitCreate">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import {
-  getRules, addRule, updateRule, deleteRule, runRule,
+  getRules, addRule, deleteRule, runRule,
 } from '@/utils/api/rules'
 import { ElMessage } from 'element-plus'
 
-const blankRule = () => ({ id: null, rule_name: '', rule_expressionStr: '' })
-
 const rules      = ref([])
-const newRule    = ref(blankRule())
+const newRule    = ref({ rule_name: '', rule_expressionStr: '' })
+const createOpen = ref(false)
 const lastRunResults   = ref([])
 const lastRunRuleName  = ref('')
 const lastRunMsg       = ref('')
 const lastRunDate      = ref('')
 
-const fmt = (v) => (v == null || Number.isNaN(Number(v))) ? '-' : Number(v).toFixed(2)
-const fmtMoney = (v) => v == null ? '-' : (Number(v) / 1e4).toFixed(2) + ' 万'
-const shortExpr = (e) => {
-  if (!e) return ''
-  const s = JSON.stringify(e)
-  return s.length > 80 ? s.slice(0, 80) + '…' : s
+const fmt  = (v) => (v == null || Number.isNaN(Number(v))) ? '-' : Number(v).toFixed(2)
+const fmtW = (v) => v == null ? '-' : (Number(v) / 1e4).toFixed(2)
+
+const boardLabel = (s) => {
+  const sym = String(s.symbol || '')
+  if (sym.startsWith('688')) return '科创板'
+  if (sym.startsWith('300') || sym.startsWith('301')) return '创业板'
+  if (sym.startsWith('60') || sym.startsWith('00') || sym.startsWith('20')) return '主板'
+  if (sym.startsWith('8')  || sym.startsWith('43') || sym.startsWith('92')) return '北交所'
+  if (sym.startsWith('9')) return 'B股'
+  return s.market || '—'
 }
 
-const openChart = (s) => {
-  // 复用全局事件，让 StockChart / 详情页接收
-  window.dispatchEvent(new CustomEvent('show-stock', { detail: s }))
+const exprFull = (r) => {
+  if (!r.rule_expression) return '{}'
+  const s = JSON.stringify(r.rule_expression)
+  return s.length > 200 ? s.slice(0, 200) + '…' : s
 }
 
 const getRules_ = async () => {
@@ -135,7 +145,12 @@ const getRules_ = async () => {
   } catch (err) { ElMessage.error('获取规则失败') }
 }
 
-const addOrUpdateRule = async () => {
+const openCreate = () => {
+  newRule.value = { rule_name: '', rule_expressionStr: '' }
+  createOpen.value = true
+}
+
+const submitCreate = async () => {
   if (!newRule.value.rule_name || !newRule.value.rule_expressionStr) {
     ElMessage.warning('请填写规则名和表达式')
     return
@@ -144,13 +159,10 @@ const addOrUpdateRule = async () => {
   try { expr = JSON.parse(newRule.value.rule_expressionStr) }
   catch (e) { return ElMessage.error('表达式不是合法 JSON: ' + e.message) }
 
-  if (newRule.value.id) {
-    await updateRule(newRule.value.id, newRule.value.rule_name, expr)
-  } else {
-    await addRule(newRule.value.rule_name, expr)
-  }
-  newRule.value = blankRule()
+  await addRule(newRule.value.rule_name, expr)
+  createOpen.value = false
   await getRules_()
+  ElMessage.success('已保存')
 }
 
 const runRuleNow = async (row) => {
@@ -173,28 +185,61 @@ const runRuleNow = async (row) => {
   }
 }
 
-const editRuleItem   = (row) => { newRule.value = { id: row.id, rule_name: row.rule_name, rule_expressionStr: row.rule_expressionStr } }
 const deleteRuleItem = async (id) => { await deleteRule(id); await getRules_() }
 
 onMounted(getRules_)
 </script>
 
 <style scoped>
-.title { margin-top: 0; margin-bottom: 12px; }
-.rule-form { align-items: flex-start; }
-.expr { font-size: 12px; }
-.mt-4 { margin-top: 16px; }
-.mb-3 { margin-bottom: 12px; }
+.rules-page { padding: 16px; }
 .mb-4 { margin-bottom: 16px; }
-.p-4 { padding: 16px; }
-
-/* 卡片结果区 */
-.result-header {
-  display: flex; justify-content: space-between; align-items: center;
+.header {
+  display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 12px;
 }
+.title { margin: 0; }
+.sub  { color: #909399; font-size: 12px; margin-left: 8px; }
+
+/* 规则卡 */
+.rule-card {
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  background: #fff;
+  height: 130px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  transition: all .15s ease;
+}
+.rule-card:hover {
+  border-color: #c0c4cc;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  transform: translateY(-2px);
+}
+.rule-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.rule-name {
+  font-size: 14px; font-weight: 700; color: #303133;
+  max-width: 170px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rule-expr {
+  font-size: 11px; color: #909399; font-family: monospace;
+  background: #f5f7fa; padding: 6px 8px; border-radius: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rule-foot { display: flex; gap: 6px; justify-content: flex-end; }
+
+/* 命中卡（与 Results.vue 保持一致） */
+.result-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 12px;
+}
+.title-inline { margin: 0 0 4px; }
+.meta-tip    { color: #909399; font-size: 12px; }
 .result-meta { display: flex; align-items: center; gap: 12px; }
-.date-tip   { color: #888; font-size: 12px; }
+.date-tip    { color: #888; font-size: 12px; }
 
 .result-grid { margin-top: 4px; }
 .stock-card {
@@ -203,7 +248,6 @@ onMounted(getRules_)
   padding: 12px;
   margin-bottom: 12px;
   background: #fff;
-  cursor: pointer;
   transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
 }
 .stock-card:hover {
@@ -215,17 +259,19 @@ onMounted(getRules_)
   display: flex; align-items: center; gap: 6px;
   font-size: 12px; color: #606266;
 }
-.card-row1 .sym  { font-weight: 700; color: #303133; }
-.card-row1 .name { color: #303133; font-weight: 600; max-width: 110px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.card-row1 .board{ margin-left: auto; }
+.card-row1 .sym { font-weight: 700; color: #303133; }
+.card-row1 .name {
+  color: #303133; font-weight: 600; max-width: 100px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card-row1 .market-tag { margin-left: auto; }
 
 .card-row2 {
   display: flex; align-items: baseline; justify-content: space-between;
   margin: 8px 0 6px;
 }
 .card-row2 .price { font-size: 22px; font-weight: 700; color: #303133; }
-.card-row2 .pct    { font-size: 14px; font-weight: 700; }
+.card-row2 .pct   { font-size: 14px; font-weight: 700; }
 .up   { color: #c0392b; }
 .down { color: #27ae60; }
 
@@ -234,6 +280,8 @@ onMounted(getRules_)
   border-top: 1px dashed #ebeef5; padding-top: 6px;
   font-size: 12px; color: #606266;
 }
-.card-row3 .kv { display: flex; flex-direction: column; align-items: flex-start; }
+.card-row3 .kv {
+  display: flex; flex-direction: column; align-items: flex-start;
+}
 .card-row3 .kv b { color: #303133; font-weight: 600; margin-top: 2px; }
 </style>

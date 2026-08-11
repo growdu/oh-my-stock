@@ -6,29 +6,17 @@
       <span>MyStock</span>
     </div>
 
-    <!-- 横向菜单 -->
+    <!-- 横向菜单：仅 2 项 -->
     <el-menu
       mode="horizontal"
       :default-active="activePage"
       class="menu desktop-menu"
     >
       <el-menu-item index="/home">
-        <router-link to="/home">首页</router-link>
-      </el-menu-item>
-      <el-menu-item index="/hot">
-        <router-link to="/hot">热点股票</router-link>
-      </el-menu-item>
-      <el-menu-item index="/daily">
-        <router-link to="/daily">股票日线</router-link>
-      </el-menu-item>
-      <el-menu-item index="/favorites">
-        <router-link to="/favorites">我的收藏</router-link>
+        <router-link to="/home">选股结果</router-link>
       </el-menu-item>
       <el-menu-item index="/rules">
-        <router-link to="/rules">我的规则</router-link>
-      </el-menu-item>
-      <el-menu-item index="/presets">
-        <router-link to="/presets">默认策略</router-link>
+        <router-link to="/rules">规则管理</router-link>
       </el-menu-item>
     </el-menu>
 
