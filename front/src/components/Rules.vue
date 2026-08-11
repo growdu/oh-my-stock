@@ -1,32 +1,45 @@
 <template>
   <div class="rules-page">
-    <!-- 顶部：用户自定义规则卡片网格 -->
+    <!-- 顶部：用户自定义规则卡片网格（3D 翻牌） -->
     <el-card class="mb-4">
       <div class="header">
         <div>
           <h2 class="title">规则管理</h2>
-          <span class="sub">点击「执行」查看该规则的命中股票；卡片右上角删除</span>
+          <span class="sub">点击「执行」查看该规则的命中股票；卡片悬停可翻转看完整表达式</span>
         </div>
         <el-button type="primary" @click="openCreate">+ 新增规则</el-button>
       </div>
 
-      <el-row v-if="rules.length" :gutter="12">
+      <el-row v-if="rules.length" :gutter="12" class="cards-stage">
         <el-col
           v-for="r in rules"
           :key="r.id"
           :xs="24" :sm="12" :md="8" :lg="6" :xl="6"
         >
           <div class="rule-card">
-            <div class="rule-card-head">
-              <div class="rule-name">{{ r.rule_name }}</div>
-              <el-tag v-if="r._hits != null" :type="r._hits ? 'success' : 'info'" size="small">
-                命中 {{ r._hits ?? '-' }}
-              </el-tag>
+            <!-- 正面 -->
+            <div class="card-face card-front">
+              <div class="rule-card-head">
+                <div class="rule-name">{{ r.rule_name }}</div>
+                <el-tag v-if="r._hits != null" :type="r._hits ? 'success' : 'info'" size="small">
+                  命中 {{ r._hits ?? '-' }}
+                </el-tag>
+              </div>
+              <div class="rule-expr" :title="exprFull(r)">{{ exprFull(r) }}</div>
+              <div class="rule-foot">
+                <el-button size="small" type="primary" :loading="r._running" @click.stop="runRuleNow(r)">执行</el-button>
+                <el-button size="small" type="danger" plain @click.stop="deleteRuleItem(r.id)">删除</el-button>
+              </div>
+              <div class="flip-hint">悬停翻转 ↻</div>
             </div>
-            <div class="rule-expr" :title="exprFull(r)">{{ exprFull(r) }}</div>
-            <div class="rule-foot">
-              <el-button size="small" type="primary" :loading="r._running" @click="runRuleNow(r)">执行</el-button>
-              <el-button size="small" type="danger" plain @click="deleteRuleItem(r.id)">删除</el-button>
+            <!-- 背面：完整表达式 JSON -->
+            <div class="card-face card-back">
+              <div class="back-title">📜 规则表达式</div>
+              <pre class="rule-expr-full">{{ exprPretty(r) }}</pre>
+              <div class="rule-foot">
+                <el-button size="small" type="primary" :loading="r._running" @click.stop="runRuleNow(r)">执行</el-button>
+                <el-button size="small" type="danger" plain @click.stop="deleteRuleItem(r.id)">删除</el-button>
+              </div>
             </div>
           </div>
         </el-col>
@@ -35,7 +48,7 @@
       <el-empty v-else description="还没有自定义规则，点击右上角「新增规则」开始" />
     </el-card>
 
-    <!-- 命中股票卡片网格（执行后展示） -->
+    <!-- 命中股票卡片网格（3D 鼠标跟随倾斜） -->
     <el-card v-if="lastRunResults.length">
       <div class="result-header">
         <div>
@@ -48,27 +61,31 @@
         </div>
       </div>
 
-      <el-row :gutter="12" class="result-grid">
+      <el-row :gutter="12" class="result-grid cards-stage">
         <el-col
           v-for="s in lastRunResults"
           :key="s.symbol"
           :xs="24" :sm="12" :md="8" :lg="6" :xl="6"
         >
-          <div class="stock-card">
-            <div class="card-row1">
+          <div
+            class="stock-card"
+            @mousemove="onTiltMove"
+            @mouseleave="onTiltLeave"
+          >
+            <div class="card-row1 layer-1">
               <span class="sym">{{ s.symbol }}</span>
               <span class="name">{{ s.name }}</span>
               <el-tag size="small" effect="plain" class="market-tag">
                 {{ boardLabel(s) }}
               </el-tag>
             </div>
-            <div class="card-row2">
+            <div class="card-row2 layer-2">
               <span class="price">{{ fmt(s.current_price ?? s.close) }}</span>
               <span :class="['pct', (s.change_percent ?? 0) >= 0 ? 'up' : 'down']">
                 {{ (s.change_percent ?? 0) >= 0 ? '+' : '' }}{{ fmt(s.change_percent) }}%
               </span>
             </div>
-            <div class="card-row3">
+            <div class="card-row3 layer-3">
               <div class="kv"><span>换手</span><b>{{ fmt(s.turnover_rate) }}%</b></div>
               <div class="kv"><span>净流入(万)</span><b>{{ fmtW(s.net_inflow ?? s.net_amount) }}</b></div>
               <div class="kv"><span>PE</span><b>{{ fmt(s.pe_ttm) }}</b></div>
@@ -107,6 +124,9 @@ import {
   getRules, addRule, deleteRule, runRule,
 } from '@/utils/api/rules'
 import { ElMessage } from 'element-plus'
+import { useCard3D } from '@/composables/useCard3D'
+
+const { onTiltMove, onTiltLeave } = useCard3D({ max: 9 })
 
 const rules      = ref([])
 const newRule    = ref({ rule_name: '', rule_expressionStr: '' })
@@ -133,6 +153,12 @@ const exprFull = (r) => {
   if (!r.rule_expression) return '{}'
   const s = JSON.stringify(r.rule_expression)
   return s.length > 200 ? s.slice(0, 200) + '…' : s
+}
+
+const exprPretty = (r) => {
+  if (!r.rule_expression) return '{}'
+  try { return JSON.stringify(r.rule_expression, null, 2) }
+  catch { return String(r.rule_expression) }
 }
 
 const getRules_ = async () => {
@@ -200,22 +226,43 @@ onMounted(getRules_)
 .title { margin: 0; }
 .sub  { color: #909399; font-size: 12px; margin-left: 8px; }
 
-/* 规则卡 */
+/* ============ 3D 场景：父级建立透视 ============ */
+.cards-stage { perspective: 1200px; }
+
+/* ============ 规则卡（3D 翻牌） ============ */
 .rule-card {
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
+  position: relative;
+  height: 170px;
+  margin-bottom: 14px;
+  transform-style: preserve-3d;
+  transition: transform .45s cubic-bezier(.2,.7,.3,1);
+}
+.rule-card:hover { transform: translateY(-4px); }
+
+.rule-card .card-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
   padding: 12px 14px;
-  margin-bottom: 12px;
+  border: 1px solid #ebeef5;
   background: #fff;
-  height: 130px;
-  display: flex; flex-direction: column; justify-content: space-between;
-  transition: all .15s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform .65s cubic-bezier(.4,.0,.2,1), box-shadow .35s;
 }
-.rule-card:hover {
-  border-color: #c0c4cc;
-  box-shadow: 0 2px 8px rgba(0,0,0,.06);
-  transform: translateY(-2px);
+.rule-card .card-front { transform: rotateY(0deg); }
+.rule-card .card-back {
+  transform: rotateY(180deg);
+  background: linear-gradient(135deg, #fdf6ec 0%, #ffffff 75%);
+  border-color: #e6a23c;
+  box-shadow: 0 6px 18px rgba(230,162,60,.18);
 }
+.rule-card:hover .card-front { transform: rotateY(-180deg); }
+.rule-card:hover .card-back  { transform: rotateY(0deg); }
+
 .rule-card-head {
   display: flex; align-items: center; justify-content: space-between;
 }
@@ -228,10 +275,29 @@ onMounted(getRules_)
   font-size: 11px; color: #909399; font-family: monospace;
   background: #f5f7fa; padding: 6px 8px; border-radius: 4px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-top: 6px;
 }
-.rule-foot { display: flex; gap: 6px; justify-content: flex-end; }
+.rule-expr-full {
+  font-size: 10px; color: #606266; font-family: monospace;
+  background: #fdf6ec; padding: 6px 8px; border-radius: 4px;
+  margin: 0;
+  flex: 1; overflow: auto;
+  white-space: pre-wrap; word-break: break-all;
+  line-height: 1.4;
+}
+.rule-foot { display: flex; gap: 6px; justify-content: flex-end; margin-top: auto; }
+.flip-hint {
+  position: absolute; bottom: 4px; right: 8px;
+  font-size: 10px; color: #c0c4cc;
+  font-family: monospace;
+}
 
-/* 命中卡（与 Results.vue 保持一致） */
+.back-title {
+  font-size: 13px; font-weight: 700; color: #303133;
+  margin-bottom: 6px;
+}
+
+/* ============ 命中股票卡（3D 倾斜 + 分层） ============ */
 .result-header {
   display: flex; justify-content: space-between; align-items: flex-start;
   margin-bottom: 12px;
@@ -243,21 +309,25 @@ onMounted(getRules_)
 
 .result-grid { margin-top: 4px; }
 .stock-card {
+  position: relative;
   border: 1px solid #ebeef5;
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 12px;
-  background: #fff;
-  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  transform-style: preserve-3d;
+  will-change: transform, box-shadow;
 }
-.stock-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 14px rgba(0,0,0,.08);
-  border-color: #c0c4cc;
+.stock-card::before {
+  content: ''; position: absolute; inset: 0;
+  border-radius: 10px; pointer-events: none;
+  background: radial-gradient(120% 80% at 0% 0%, rgba(64,158,255,.05), transparent 60%);
 }
+
 .card-row1 {
   display: flex; align-items: center; gap: 6px;
   font-size: 12px; color: #606266;
+  transform: translateZ(6px);
 }
 .card-row1 .sym { font-weight: 700; color: #303133; }
 .card-row1 .name {
@@ -268,9 +338,10 @@ onMounted(getRules_)
 
 .card-row2 {
   display: flex; align-items: baseline; justify-content: space-between;
-  margin: 8px 0 6px;
+  margin: 8px 0 8px;
+  transform: translateZ(20px);
 }
-.card-row2 .price { font-size: 22px; font-weight: 700; color: #303133; }
+.card-row2 .price { font-size: 24px; font-weight: 800; color: #303133; letter-spacing: -0.5px; }
 .card-row2 .pct   { font-size: 14px; font-weight: 700; }
 .up   { color: #c0392b; }
 .down { color: #27ae60; }
@@ -279,6 +350,8 @@ onMounted(getRules_)
   display: flex; justify-content: space-between;
   border-top: 1px dashed #ebeef5; padding-top: 6px;
   font-size: 12px; color: #606266;
+  transform: translateZ(8px);
+  margin-top: 6px;
 }
 .card-row3 .kv {
   display: flex; flex-direction: column; align-items: flex-start;
