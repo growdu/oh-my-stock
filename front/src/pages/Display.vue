@@ -1,26 +1,7 @@
 <template>
-  <div class="display-page">
-    <header class="display-bar">
-      <div class="brand">
-        <img src="@/assets/logo.png" alt="MyStock" class="brand-logo" />
-        <div class="brand-text">
-          <div class="brand-title">MyStock · 每日选股</div>
-          <div class="brand-sub">系统内置 8 套规则 · 当日命中自动按板型排序</div>
-        </div>
-      </div>
-      <div class="bar-actions">
-        <el-tag type="info" effect="plain" class="bar-tag">公开展示</el-tag>
-        <span class="trade-date" v-if="tradeDate">交易日 {{ tradeDate }}</span>
-        <el-button size="small" plain @click="$router.push('/admin')">管理后台 →</el-button>
-      </div>
-    </header>
-
-    <!-- 规则选择条（直接放最外层 div，无 el-card 包裹） -->
-    <div class="carousel-section">
-      <div class="section-head">
-        <h3 class="section-title">系统规则</h3>
-        <span class="section-sub">点击卡片或左右箭头切换规则，选中规则会高亮放大</span>
-      </div>
+  <div class="page">
+    <!-- 8 个系统规则 grid（直接放在最外层 div） -->
+    <div class="rules-section">
       <div class="carousel">
         <button class="carousel-arrow left" @click="prev" aria-label="上一条">‹</button>
         <div class="carousel-track">
@@ -58,59 +39,50 @@
       </div>
     </div>
 
-    <!-- 命中股票 -->
-    <el-card v-if="selected">
-      <div class="result-header">
-        <div>
-          <h3 class="title-inline">「{{ selected.name }}」命中结果</h3>
-          <span class="meta-tip">{{ selected.description }}</span>
-        </div>
-        <div class="result-meta">
-          <el-tag type="success">共 {{ total }} 只</el-tag>
-        </div>
+    <!-- 命中股票（直接放在最外层 div，无 el-card） -->
+    <div v-if="selected" class="stocks-section">
+      <div class="stocks-header">
+        <h3 class="stocks-title">「{{ selected.name }}」命中结果</h3>
+        <span class="stocks-meta">共 {{ total }} 只<span v-if="tradeDate"> · {{ tradeDate }}</span></span>
       </div>
 
       <el-skeleton v-if="loading" :rows="4" animated />
 
-      <el-empty v-else-if="!rows.length" description="当前没有命中股票，请稍后再试" />
+      <el-empty v-else-if="!rows.length" description="当前没有命中股票" />
 
-      <el-row v-else :gutter="12" class="result-grid cards-stage">
-        <el-col
+      <div v-else class="cards-stage stocks-grid">
+        <div
           v-for="s in rows"
           :key="s.symbol"
-          :xs="24" :sm="12" :md="8" :lg="6" :xl="6"
+          class="stock-card"
+          @mousemove="onTiltMove"
+          @mouseleave="onTiltLeave"
         >
-          <div
-            class="stock-card"
-            @mousemove="onTiltMove"
-            @mouseleave="onTiltLeave"
-          >
-            <div class="card-row1 layer-1">
-              <span class="sym">{{ s.symbol }}</span>
-              <span class="name" :title="s.name">{{ s.name }}</span>
-              <el-tag size="small" effect="plain" class="market-tag">
-                {{ boardLabel(s) }}
-              </el-tag>
-            </div>
-            <div class="card-row2 layer-2">
-              <span class="price">{{ fmt(s.close) }}</span>
-              <span :class="['pct', (s.change_percent ?? 0) >= 0 ? 'up' : 'down']">
-                {{ (s.change_percent ?? 0) >= 0 ? '+' : '' }}{{ fmt(s.change_percent) }}%
-              </span>
-            </div>
-            <div class="card-row3 layer-3">
-              <div class="kv"><span>开</span><b>{{ fmt(s.open) }}</b></div>
-              <div class="kv"><span>高</span><b>{{ fmt(s.high) }}</b></div>
-              <div class="kv"><span>低</span><b>{{ fmt(s.low) }}</b></div>
-            </div>
-            <div class="card-row4 layer-4">
-              <div class="kv"><span>换手</span><b>{{ fmt(s.turnover_rate) }}%</b></div>
-              <div class="kv"><span>净流入(万)</span><b>{{ fmtW(s.net_amount) }}</b></div>
-              <div class="kv"><span>PE</span><b>{{ fmt(s.pe_ttm) }}</b></div>
-            </div>
+          <div class="card-row1 layer-1">
+            <span class="sym">{{ s.symbol }}</span>
+            <span class="name" :title="s.name">{{ s.name }}</span>
+            <el-tag size="small" effect="plain" class="market-tag">
+              {{ boardLabel(s) }}
+            </el-tag>
           </div>
-        </el-col>
-      </el-row>
+          <div class="card-row2 layer-2">
+            <span class="price">{{ fmt(s.close) }}</span>
+            <span :class="['pct', (s.change_percent ?? 0) >= 0 ? 'up' : 'down']">
+              {{ (s.change_percent ?? 0) >= 0 ? '+' : '' }}{{ fmt(s.change_percent) }}%
+            </span>
+          </div>
+          <div class="card-row3 layer-3">
+            <div class="kv"><span>开</span><b>{{ fmt(s.open) }}</b></div>
+            <div class="kv"><span>高</span><b>{{ fmt(s.high) }}</b></div>
+            <div class="kv"><span>低</span><b>{{ fmt(s.low) }}</b></div>
+          </div>
+          <div class="card-row4 layer-4">
+            <div class="kv"><span>换手</span><b>{{ fmt(s.turnover_rate) }}%</b></div>
+            <div class="kv"><span>净流入(万)</span><b>{{ fmtW(s.net_amount) }}</b></div>
+            <div class="kv"><span>PE</span><b>{{ fmt(s.pe_ttm) }}</b></div>
+          </div>
+        </div>
+      </div>
 
       <div class="pager" v-if="rows.length">
         <el-pagination
@@ -121,7 +93,7 @@
           @current-change="onPage"
         />
       </div>
-    </el-card>
+    </div>
   </div>
 </template>
 
@@ -165,7 +137,6 @@ const boardSummary = (p) => {
   return '全部'
 }
 
-// grid 模式：所有 8 张卡片都可见，选中通过高亮 + scale 突出
 const selectByIndex = (i) => {
   if (i === selectedIndex.value) return
   selectedIndex.value = i
@@ -228,52 +199,18 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.display-page { padding: 16px; }
+.page { padding: 16px; }
 
-/* 自定义简洁 Header */
-.display-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  margin-bottom: 16px;
-  background: linear-gradient(135deg, #ffffff 0%, #f5faff 100%);
-  border-radius: 10px;
-  border: 1px solid #ebeef5;
-  box-shadow: 0 2px 8px rgba(0,0,0,.04);
-}
-.brand { display: flex; align-items: center; gap: 12px; }
-.brand-logo { height: 36px; }
-.brand-title { font-size: 18px; font-weight: 700; color: #303133; }
-.brand-sub { font-size: 12px; color: #909399; margin-top: 2px; }
-
-.bar-actions { display: flex; align-items: center; gap: 12px; }
-.bar-tag { background: #fdf6ec; border-color: #faecd8; color: #b88230; }
-.trade-date { font-size: 12px; color: #606266; font-family: monospace; }
-
-.mb-4 { margin-bottom: 16px; }
-
-/* ============ 规则选择条（8 卡 grid 全可见 + 选中高亮放大） ============ */
-.carousel-section {
-  padding: 16px 16px 8px;
+/* ============ 8 卡 grid 全可见 + 选中高亮放大 ============ */
+.rules-section {
+  padding: 16px 0 8px;
   margin-bottom: 8px;
-  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
-  border-radius: 12px;
-  border: 1px solid #ebeef5;
-  box-shadow: 0 2px 10px rgba(0,0,0,.04);
 }
-.section-head {
-  display: flex; align-items: baseline; gap: 12px;
-  margin-bottom: 12px;
-}
-.section-title { margin: 0; font-size: 18px; font-weight: 700; color: #303133; }
-.section-sub  { font-size: 12px; color: #909399; }
 
 .carousel {
   position: relative;
   padding: 0 36px;
 }
-/* 8 卡 grid 布局，所有卡片都可见 */
 .carousel-track {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
@@ -306,7 +243,6 @@ onMounted(async () => {
   box-shadow: 0 6px 18px rgba(64,158,255,.18);
   transform: translateY(-2px);
 }
-/* 选中卡片：scale + 上浮 + 蓝边 + 蓝光阴影 — 视觉上"突出/在中间" */
 .carousel-card.active {
   transform: scale(1.08) translateY(-8px);
   border-color: #409eff;
@@ -317,22 +253,16 @@ onMounted(async () => {
   z-index: 10;
 }
 
-.pcard-head {
-  display: flex; align-items: center; gap: 6px;
-  margin-bottom: 6px;
-}
+.pcard-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .pcard-name {
   font-size: 14px; font-weight: 700; color: #303133;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   letter-spacing: -0.2px;
 }
-.pcard-tag {
-  margin-bottom: 6px;
-}
+.pcard-tag { margin-bottom: 6px; }
 .pcard-desc {
   font-size: 11.5px; color: #606266; line-height: 1.55;
-  margin: 0;
-  flex: 1;
+  margin: 0; flex: 1;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -346,7 +276,6 @@ onMounted(async () => {
 .pcard-hint { color: #409eff; opacity: 0; transition: opacity .25s; font-size: 14px; }
 .carousel-card.active .pcard-hint { opacity: 1; }
 
-/* 左右箭头 */
 .carousel-arrow {
   position: absolute;
   top: 50%; transform: translateY(-50%);
@@ -387,23 +316,33 @@ onMounted(async () => {
   border-radius: 4px;
 }
 
-/* ============ 命中股票卡 3D 倾斜 ============ */
-.cards-stage { perspective: 1200px; }
-.result-header {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  margin-bottom: 12px;
+/* ============ 命中股票 ============ */
+.stocks-section {
+  margin-top: 16px;
 }
-.title-inline { margin: 0 0 4px; }
-.meta-tip    { color: #909399; font-size: 12px; }
-.result-meta { display: flex; align-items: center; gap: 12px; }
+.stocks-header {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+.stocks-title { margin: 0; font-size: 16px; font-weight: 700; color: #303133; }
+.stocks-meta  { font-size: 12px; color: #909399; }
 
-.result-grid { margin-top: 4px; }
+.cards-stage { perspective: 1200px; }
+.stocks-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+@media (max-width: 1280px) { .stocks-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 900px)  { .stocks-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px)  { .stocks-grid { grid-template-columns: 1fr; } }
+
 .stock-card {
   position: relative;
   border: 1px solid #ebeef5;
   border-radius: 10px;
   padding: 14px;
-  margin-bottom: 14px;
   background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
   transform-style: preserve-3d;
   will-change: transform, box-shadow;

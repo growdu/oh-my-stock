@@ -2,14 +2,6 @@
   <div class="results-page">
     <!-- 顶部：8 个系统规则 grid（外置，无 el-card 包裹） -->
     <div class="carousel-section">
-      <div class="header">
-        <div>
-          <h2 class="title">选股结果</h2>
-          <span class="sub">点击下方卡片切换规则，箭头 / 圆点也可切换；当前选中规则会高亮放大</span>
-        </div>
-        <el-button size="small" @click="fetchRows" :loading="loading">刷新</el-button>
-      </div>
-
       <div class="carousel">
         <button class="carousel-arrow left" @click="prev" aria-label="上一条">‹</button>
         <div class="carousel-track">
@@ -48,34 +40,25 @@
       </div>
     </div>
 
-    <!-- 命中股票卡片网格（3D 鼠标跟随倾斜 + 分层） -->
-    <el-card v-if="selected">
-      <div class="result-header">
-        <div>
-          <h3 class="title-inline">「{{ selected.name }}」命中结果</h3>
-          <span class="meta-tip">{{ selected.description }}</span>
-        </div>
-        <div class="result-meta">
-          <el-tag type="success">共 {{ total }} 只</el-tag>
-          <span class="date-tip">{{ tradeDate }}</span>
-        </div>
+    <!-- 命中股票（直接放最外层 div，无 el-card） -->
+    <div v-if="selected" class="stocks-section">
+      <div class="stocks-header">
+        <h3 class="stocks-title">「{{ selected.name }}」命中结果</h3>
+        <span class="stocks-meta">共 {{ total }} 只<span v-if="tradeDate"> · {{ tradeDate }}</span></span>
       </div>
 
       <el-skeleton v-if="loading" :rows="4" animated />
 
       <el-empty v-else-if="!rows.length" description="当前没有命中股票，可点击「拉取最新数据」填充缓存后再试" />
 
-      <el-row v-else :gutter="12" class="result-grid cards-stage">
-        <el-col
+      <div v-else class="cards-stage stocks-grid">
+        <div
           v-for="s in rows"
           :key="s.symbol"
-          :xs="24" :sm="12" :md="8" :lg="6" :xl="6"
+          class="stock-card"
+          @mousemove="onTiltMove"
+          @mouseleave="onTiltLeave"
         >
-          <div
-            class="stock-card"
-            @mousemove="onTiltMove"
-            @mouseleave="onTiltLeave"
-          >
             <div class="card-row1 layer-1">
               <span class="sym">{{ s.symbol }}</span>
               <span class="name" :title="s.name">{{ s.name }}</span>
@@ -98,10 +81,9 @@
               <div class="kv"><span>换手</span><b>{{ fmt(s.turnover_rate) }}%</b></div>
               <div class="kv"><span>净流入(万)</span><b>{{ fmtW(s.net_amount) }}</b></div>
               <div class="kv"><span>PE</span><b>{{ fmt(s.pe_ttm) }}</b></div>
-            </div>
           </div>
-        </el-col>
-      </el-row>
+        </div>
+      </div>
 
       <div class="pager" v-if="rows.length">
         <el-pagination
@@ -112,7 +94,7 @@
           @current-change="onPage"
         />
       </div>
-    </el-card>
+    </div>
   </div>
 </template>
 
@@ -222,7 +204,6 @@ onMounted(loadPresets)
 
 <style scoped>
 .results-page { padding: 16px; }
-.mb-4 { margin-bottom: 16px; }
 .header {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 12px;
@@ -364,18 +345,29 @@ onMounted(loadPresets)
   border-radius: 4px;
 }
 
-/* ============ 命中股票卡 3D 倾斜 ============ */
-.cards-stage { perspective: 1200px; }
-.result-header {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  margin-bottom: 12px;
+/* ============ 命中股票 ============ */
+.stocks-section {
+  margin-top: 16px;
 }
-.title-inline { margin: 0 0 4px; }
-.meta-tip    { color: #909399; font-size: 12px; }
-.result-meta { display: flex; align-items: center; gap: 12px; }
-.date-tip    { color: #888; font-size: 12px; }
+.stocks-header {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+.stocks-title { margin: 0; font-size: 16px; font-weight: 700; color: #303133; }
+.stocks-meta  { font-size: 12px; color: #909399; }
 
-.result-grid { margin-top: 4px; }
+.cards-stage { perspective: 1200px; }
+.stocks-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+@media (max-width: 1280px) { .stocks-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 900px)  { .stocks-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px)  { .stocks-grid { grid-template-columns: 1fr; } }
+
+
 .stock-card {
   position: relative;
   border: 1px solid #ebeef5;

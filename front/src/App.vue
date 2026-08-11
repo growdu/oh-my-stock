@@ -1,18 +1,13 @@
 <template>
   <div id="app">
-    <Header v-if="showHeader" />
     <router-view />
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+// Header 已移除：极简页面，无顶部导航
 import { useRoute } from 'vue-router'
-import Header from '@/components/Header.vue'
-
-const route = useRoute()
-// 公开页 / 用自己的 bar，Header 仅在 /admin/* 显示
-const showHeader = computed(() => route.path.startsWith('/admin'))
+const route = useRoute()  // 占位以保持 router 上下文
 </script>
 
 <style>
