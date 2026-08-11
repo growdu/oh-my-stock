@@ -58,46 +58,46 @@
 
       <el-empty v-else-if="!rows.length" description="当前没有命中股票" />
 
-      <div v-else class="cards-stage stocks-grid">
+      <div v-else class="stocks-grid">
         <div
           v-for="s in rows"
           :key="s.symbol"
           class="stock-card"
           :class="stockClass(s)"
-          @mousemove="onTiltMove"
-          @mouseleave="onTiltLeave"
         >
-          <div class="card-topbar">
-            <span class="card-rank">#{{ rows.indexOf(s) + 1 }}</span>
-            <el-tag v-if="isLimitUp(s)" size="small" type="danger" effect="dark" class="limit-tag">涨停</el-tag>
-            <el-tag v-else-if="isLimitDown(s)" size="small" type="success" effect="dark" class="limit-tag">跌停</el-tag>
-            <span v-else class="card-vol">{{ fmtVol(s.volume) }}</span>
-          </div>
-          <div class="card-row1 layer-1">
+          <!-- 头部：代码 + 名称 + 板型 + 涨跌标签 -->
+          <div class="card-header">
             <span class="sym">{{ s.symbol }}</span>
             <span class="name" :title="s.name">{{ s.name }}</span>
-            <el-tag size="small" effect="plain" class="market-tag">
-              {{ boardLabel(s) }}
-            </el-tag>
+            <el-tag size="small" effect="plain" class="market-tag">{{ boardLabel(s) }}</el-tag>
+            <span class="rank-no">#{{ rows.indexOf(s) + 1 }}</span>
           </div>
-          <div class="card-row2 layer-2">
-            <span class="price">{{ fmt(s.close) }}</span>
-            <div class="pct-wrap">
-              <span class="arrow" :class="stockClass(s)">{{ pctArrow(s) }}</span>
-              <span class="pct" :class="stockClass(s)">
-                {{ (s.change_percent ?? 0) >= 0 ? '+' : '' }}{{ fmt(s.change_percent) }}%
-              </span>
+
+          <!-- 主体：左侧价格区 + 右侧指标网格 -->
+          <div class="card-body">
+            <div class="price-section" :class="stockClass(s)">
+              <div class="price">{{ fmt(s.close) }}</div>
+              <div class="pct-row" :class="stockClass(s)">
+                <span class="arrow">{{ pctArrow(s) }}</span>
+                <span class="pct">
+                  {{ (s.change_percent ?? 0) >= 0 ? '+' : '' }}{{ fmt(s.change_percent) }}%
+                </span>
+              </div>
+              <div class="amt" :class="stockClass(s)">{{ fmtChangeAmt(s) }}</div>
             </div>
-          </div>
-          <div class="card-row3 layer-3">
-            <div class="kv"><span>涨跌额</span><b :class="stockClass(s)">{{ fmtChangeAmt(s) }}</b></div>
-            <div class="kv"><span>振幅</span><b>{{ fmt(amplitude(s)) }}%</b></div>
-            <div class="kv"><span>换手</span><b>{{ fmt(s.turnover_rate) }}%</b></div>
-          </div>
-          <div class="card-row4 layer-4">
-            <div class="kv"><span>PE</span><b>{{ fmt(s.pe_ttm) }}</b></div>
-            <div class="kv"><span>PB</span><b>{{ fmt(s.pb) }}</b></div>
-            <div class="kv"><span>净流入(万)</span><b>{{ fmtW(s.net_amount) }}</b></div>
+
+            <div class="metrics-grid">
+              <div class="metric"><span>开盘</span><b>{{ fmt(s.open) }}</b></div>
+              <div class="metric"><span>最高</span><b>{{ fmt(s.high) }}</b></div>
+              <div class="metric"><span>最低</span><b>{{ fmt(s.low) }}</b></div>
+              <div class="metric"><span>振幅</span><b>{{ fmt(amplitude(s)) }}%</b></div>
+              <div class="metric"><span>换手</span><b>{{ fmt(s.turnover_rate) }}%</b></div>
+              <div class="metric"><span>量比</span><b class="placeholder">—</b></div>
+              <div class="metric"><span>PE</span><b>{{ fmt(s.pe_ttm) }}</b></div>
+              <div class="metric"><span>PB</span><b>{{ fmt(s.pb) }}</b></div>
+              <div class="metric"><span>净流入(万)</span><b :class="stockClass(s)">{{ fmtW(s.net_amount) }}</b></div>
+              <div class="metric"><span>成交量</span><b>{{ fmtVol(s.volume) }}</b></div>
+            </div>
           </div>
         </div>
       </div>
@@ -119,10 +119,10 @@
 import { ref, onMounted } from 'vue'
 import { listPresets } from '@/utils/api/presets'
 import { ElMessage } from 'element-plus'
-import { useCard3D } from '@/composables/useCard3D'
+
 import { usePresetCache } from '@/composables/usePresetCache'
 
-const { onTiltMove, onTiltLeave } = useCard3D({ max: 9 })
+
 const { cache, fetchPage, preloadAll, invalidate } = usePresetCache(8)
 
 const presets       = ref([])
@@ -163,8 +163,6 @@ const amplitude = (s) => {
   return ((s.high - s.low) / pc) * 100
 }
 
-const isLimitUp = (s) => (s.change_percent ?? 0) >= 19.5
-const isLimitDown = (s) => (s.change_percent ?? 0) <= -19.5
 const fmtVol = (v) => {
   if (v == null) return '-'
   if (v >= 1e8) return (v/1e8).toFixed(2) + '亿'
@@ -487,7 +485,7 @@ onMounted(async () => {
   font-weight: 600;
 }
 
-.cards-stage { perspective: 1200px; }
+
 .stocks-grid {
   flex: 1 1 auto;
   display: grid;
@@ -502,146 +500,131 @@ onMounted(async () => {
 
 .stock-card {
   position: relative;
-  border: 1.5px solid #e5e7eb;
-  border-left: 4px solid #9ca3af;
-  border-radius: 10px;
-  padding: 10px 14px 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 10px 14px 10px 14px;
   background: #ffffff;
-  transform-style: preserve-3d;
-  will-change: transform, box-shadow;
   overflow: hidden;
-  transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
+  transition: border-color .2s ease, box-shadow .2s ease;
 }
-.stock-card::before {
-  content: ''; position: absolute; inset: 0;
-  border-radius: 10px; pointer-events: none;
-  background: radial-gradient(120% 80% at 0% 0%, rgba(64,158,255,.04), transparent 60%);
+/* 右侧涨跌色条 */
+.stock-card::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 3px;
 }
-.stock-card.up {
-  border-left-color: #e63946;
-  background: linear-gradient(135deg, #ffffff 0%, #fff5f5 100%);
-}
-.stock-card.down {
-  border-left-color: #16a34a;
-  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
-}
-.stock-card.up:hover {
-  border-color: #ffb4b4;
-  border-left-color: #e63946;
-  box-shadow: 0 8px 24px rgba(230,57,70,.18);
-  transform: translateY(-2px);
-}
-.stock-card.down:hover {
-  border-color: #86efac;
-  border-left-color: #16a34a;
-  box-shadow: 0 8px 24px rgba(22,163,74,.18);
-  transform: translateY(-2px);
-}
+.stock-card.up::after { background: #e63946; }
+.stock-card.down::after { background: #16a34a; }
+.stock-card.flat::after { background: #d1d5db; }
+
+.stock-card.up   { background: #fff8f8; }
+.stock-card.down { background: #f6fbf8; }
 .stock-card:hover {
-  transform: translateY(-2px);
+  border-color: #d1d5db;
+  box-shadow: 0 4px 16px rgba(0,0,0,.06);
 }
 
-.card-topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 6px;
-  min-height: 18px;
-  font-size: 11px;
-}
-.card-rank {
-  color: #999; font-weight: 600;
-  font-family: 'SF Mono', Menlo, monospace;
-}
-.limit-tag {
-  font-weight: 700 !important;
-  letter-spacing: 1px;
-}
-.card-vol {
-  color: #999;
-  font-family: 'SF Mono', Menlo, monospace;
-  font-size: 10px;
-}
-
-.card-row1 {
+/* 头部 */
+.card-header {
   display: flex; align-items: center; gap: 8px;
-  transform: translateZ(6px);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #f3f4f6;
 }
-.card-row1 .sym {
-  font-size: 15px;
-  font-weight: 800;
-  color: #000;
-  letter-spacing: -0.3px;
+.card-header .sym {
+  font-size: 15px; font-weight: 800; color: #1a1a1a;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
+  letter-spacing: -0.3px;
 }
-.card-row1 .name {
-  color: #000;
-  font-weight: 700;
-  font-size: 14px;
-  max-width: 130px;
+.card-header .name {
+  font-size: 13px; color: #555; font-weight: 600;
+  max-width: 110px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.card-row1 .market-tag {
+.card-header .market-tag {
   margin-left: auto;
-  background: #ecf5ff !important;
-  border-color: #b3d8ff !important;
-  color: #1d6fcf !important;
+  background: #f0f9ff !important;
+  border-color: #bae6fd !important;
+  color: #0369a1 !important;
   font-weight: 600 !important;
 }
-
-.card-row2 {
-  display: flex; align-items: baseline; justify-content: space-between;
-  margin: 10px 0 10px;
-  transform: translateZ(20px);
+.card-header .rank-no {
+  font-size: 11px; color: #999;
+  font-family: 'SF Mono', Menlo, monospace;
+  font-weight: 600;
 }
-.card-row2 .price {
-  font-size: 30px;
+
+/* 主体：左侧价格区 + 右侧指标网格 */
+.card-body {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.price-section {
+  flex: 0 0 auto;
+  min-width: 115px;
+  padding-right: 12px;
+  border-right: 1px dashed #e5e7eb;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.price-section .price {
+  font-size: 28px;
   font-weight: 900;
-  color: #000;
   letter-spacing: -0.8px;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
+  line-height: 1.05;
 }
-.card-row2 .pct {
-  font-size: 17px;
-  font-weight: 800;
+.price-section.up   .price { color: #e63946; }
+.price-section.down .price { color: #16a34a; }
+
+.pct-row {
+  display: flex; align-items: center; gap: 3px;
+  margin-top: 5px;
+  font-weight: 700;
+}
+.pct-row.up   { color: #e63946; }
+.pct-row.down { color: #16a34a; }
+.pct-row .arrow { font-size: 12px; }
+.pct-row .pct {
+  font-size: 14px;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
-.pct-wrap {
-  display: flex; align-items: center; gap: 4px;
-}
-.card-row2 .arrow {
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1;
-}
-.card-row2 .arrow.up   { color: #e63946; }
-.card-row2 .arrow.down { color: #16a34a; }
-.up   { color: #e63946; }
-.down { color: #16a34a; }
-.flat { color: #6b7280; }
 
-.card-row3, .card-row4 {
-  display: flex; justify-content: space-between;
-  border-top: 1.5px dashed #d6e8ff;
-  padding-top: 8px;
-  margin-top: 8px;
-  transform: translateZ(4px);
+.amt {
+  font-size: 12px; font-weight: 600;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  margin-top: 3px;
 }
-.card-row3 { margin-top: 10px; }
-.card-row4 { transform: translateZ(10px); }
-.card-row3 .kv, .card-row4 .kv {
-  display: flex; flex-direction: column; align-items: flex-start;
-  gap: 4px;
+.amt.up   { color: #e63946; }
+.amt.down { color: #16a34a; }
+
+.metrics-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 5px 14px;
+  align-content: center;
 }
-.card-row3 .kv span, .card-row4 .kv span {
+.metric {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 6px;
   font-size: 11px;
+  line-height: 1.5;
+}
+.metric span {
   color: #888;
   font-weight: 500;
 }
-.card-row3 .kv b, .card-row4 .kv b {
-  color: #000;
-  font-weight: 800;
-  font-size: 14px;
+.metric b {
+  color: #1a1a1a;
+  font-weight: 700;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
+.metric b.up   { color: #e63946; }
+.metric b.down { color: #16a34a; }
+.metric b.placeholder { color: #cbd5e1; font-weight: 400; }
 
 .pager {
   flex: 0 0 auto;
