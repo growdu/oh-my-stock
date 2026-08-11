@@ -42,11 +42,16 @@
     <!-- 命中股票 -->
     <div v-if="selected" class="stocks-section">
       <div class="stocks-header">
-        <h3 class="stocks-title">
+        <div class="stocks-title">
           <span class="stock-red-bar"></span>
           「{{ selected.name }}」命中结果
-        </h3>
-        <span class="stocks-meta">共 {{ total }} 只<span v-if="tradeDate"> · {{ tradeDate }}</span></span>
+          <span class="stocks-meta">共 {{ total }} 只<span v-if="tradeDate"> · {{ tradeDate }}</span></span>
+        </div>
+        <div class="stocks-actions">
+          <el-button size="small" plain @click="exportCSV">
+            <span style="margin-right: 4px">⬇</span>导出 CSV
+          </el-button>
+        </div>
       </div>
 
       <el-skeleton v-if="loading" :rows="4" animated />
@@ -58,9 +63,16 @@
           v-for="s in rows"
           :key="s.symbol"
           class="stock-card"
+          :class="stockClass(s)"
           @mousemove="onTiltMove"
           @mouseleave="onTiltLeave"
         >
+          <div class="card-topbar">
+            <span class="card-rank">#{{ rows.indexOf(s) + 1 }}</span>
+            <el-tag v-if="isLimitUp(s)" size="small" type="danger" effect="dark" class="limit-tag">涨停</el-tag>
+            <el-tag v-else-if="isLimitDown(s)" size="small" type="success" effect="dark" class="limit-tag">跌停</el-tag>
+            <span v-else class="card-vol">{{ fmtVol(s.volume) }}</span>
+          </div>
           <div class="card-row1 layer-1">
             <span class="sym">{{ s.symbol }}</span>
             <span class="name" :title="s.name">{{ s.name }}</span>
@@ -70,19 +82,22 @@
           </div>
           <div class="card-row2 layer-2">
             <span class="price">{{ fmt(s.close) }}</span>
-            <span :class="['pct', (s.change_percent ?? 0) >= 0 ? 'up' : 'down']">
-              {{ (s.change_percent ?? 0) >= 0 ? '+' : '' }}{{ fmt(s.change_percent) }}%
-            </span>
+            <div class="pct-wrap">
+              <span class="arrow" :class="stockClass(s)">{{ pctArrow(s) }}</span>
+              <span class="pct" :class="stockClass(s)">
+                {{ (s.change_percent ?? 0) >= 0 ? '+' : '' }}{{ fmt(s.change_percent) }}%
+              </span>
+            </div>
           </div>
           <div class="card-row3 layer-3">
-            <div class="kv"><span>开</span><b>{{ fmt(s.open) }}</b></div>
-            <div class="kv"><span>高</span><b>{{ fmt(s.high) }}</b></div>
-            <div class="kv"><span>低</span><b>{{ fmt(s.low) }}</b></div>
+            <div class="kv"><span>涨跌额</span><b :class="stockClass(s)">{{ fmtChangeAmt(s) }}</b></div>
+            <div class="kv"><span>振幅</span><b>{{ fmt(amplitude(s)) }}%</b></div>
+            <div class="kv"><span>换手</span><b>{{ fmt(s.turnover_rate) }}%</b></div>
           </div>
           <div class="card-row4 layer-4">
-            <div class="kv"><span>换手</span><b>{{ fmt(s.turnover_rate) }}%</b></div>
-            <div class="kv"><span>净流入(万)</span><b>{{ fmtW(s.net_amount) }}</b></div>
             <div class="kv"><span>PE</span><b>{{ fmt(s.pe_ttm) }}</b></div>
+            <div class="kv"><span>PB</span><b>{{ fmt(s.pb) }}</b></div>
+            <div class="kv"><span>净流入(万)</span><b>{{ fmtW(s.net_amount) }}</b></div>
           </div>
         </div>
       </div>
@@ -123,6 +138,40 @@ const tradeDate     = ref('')
 
 const fmt  = (v) => (v == null || Number.isNaN(Number(v))) ? '-' : Number(v).toFixed(2)
 const fmtW = (v) => v == null ? '-' : (Number(v) / 1e4).toFixed(2)
+const stockClass = (s) => {
+  const cp = s.change_percent ?? 0
+  if (cp > 0) return 'up'
+  if (cp < 0) return 'down'
+  return 'flat'
+}
+const pctArrow = (s) => {
+  const cp = s.change_percent ?? 0
+  if (cp > 0) return '▲'
+  if (cp < 0) return '▼'
+  return '─'
+}
+const fmtChangeAmt = (s) => {
+  if (s.close == null || s.change_percent == null) return '-'
+  const prev = s.close / (1 + s.change_percent / 100)
+  const amt = s.close - prev
+  return (amt >= 0 ? '+' : '') + amt.toFixed(2)
+}
+const amplitude = (s) => {
+  if (!s.high || !s.low || !s.close || s.change_percent == null) return null
+  const pc = s.close / (1 + s.change_percent / 100)
+  if (!pc) return null
+  return ((s.high - s.low) / pc) * 100
+}
+
+const isLimitUp = (s) => (s.change_percent ?? 0) >= 19.5
+const isLimitDown = (s) => (s.change_percent ?? 0) <= -19.5
+const fmtVol = (v) => {
+  if (v == null) return '-'
+  if (v >= 1e8) return (v/1e8).toFixed(2) + '亿'
+  if (v >= 1e4) return (v/1e4).toFixed(0) + '万'
+  return String(v)
+}
+
 
 const boardLabel = (s) => {
   const sym = String(s.symbol || '')
@@ -198,6 +247,36 @@ const fetchRows = async (pageNum) => {
   } finally {
     loading.value = false
   }
+}
+
+
+const exportCSV = () => {
+  if (!rows.value.length) return
+  const headers = ['代码', '名称', '板型', '现价', '涨跌幅%', '涨跌额', '振幅%', '换手%', 'PE', 'PB', '净流入(万)']
+  const csv = [
+    headers.join(','),
+    ...rows.value.map(s => [
+      s.symbol,
+      '"' + (s.name || '').replace(/"/g, '""') + '"',
+      boardLabel(s),
+      s.close,
+      s.change_percent?.toFixed(2),
+      fmtChangeAmt(s),
+      amplitude(s)?.toFixed(2),
+      s.turnover_rate?.toFixed(2),
+      s.pe_ttm?.toFixed(2),
+      s.pb?.toFixed(2),
+      s.net_amount ? (s.net_amount / 1e4).toFixed(2) : '',
+    ].join(','))
+  ].join('\n')
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${selectedId.value}_${tradeDate.value || 'today'}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+  ElMessage.success(`已导出 ${rows.value.length} 条数据`)
 }
 
 const onPage = (p) => { page.value = p; fetchRows(p) }
@@ -390,9 +469,13 @@ onMounted(async () => {
 }
 .stocks-header {
   flex: 0 0 auto;
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
   margin-bottom: 14px;
-  padding: 0 4px;
+  padding: 4px 4px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #ffe0e0;
 }
 .stocks-title {
   margin: 0; font-size: 19px; font-weight: 800; color: #000;
@@ -429,21 +512,63 @@ onMounted(async () => {
 
 .stock-card {
   position: relative;
-  border: 1.5px solid #ffe0e0;          /* 浅红边 */
-  border-radius: 12px;
-  padding: 14px;
+  border: 1.5px solid #e5e7eb;
+  border-left: 4px solid #9ca3af;
+  border-radius: 10px;
+  padding: 10px 14px 12px 14px;
   background: #ffffff;
   transform-style: preserve-3d;
   will-change: transform, box-shadow;
+  overflow: hidden;
+  transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
 }
 .stock-card::before {
   content: ''; position: absolute; inset: 0;
-  border-radius: 12px; pointer-events: none;
-  background: radial-gradient(120% 80% at 0% 0%, rgba(230,57,70,.06), transparent 60%);
+  border-radius: 10px; pointer-events: none;
+  background: radial-gradient(120% 80% at 0% 0%, rgba(230,57,70,.04), transparent 60%);
+}
+.stock-card.up {
+  border-left-color: #e63946;
+  background: linear-gradient(135deg, #ffffff 0%, #fff5f5 100%);
+}
+.stock-card.down {
+  border-left-color: #16a34a;
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+}
+.stock-card.up:hover {
+  border-color: #ffb4b4;
+  border-left-color: #e63946;
+  box-shadow: 0 8px 24px rgba(230,57,70,.18);
+  transform: translateY(-2px);
+}
+.stock-card.down:hover {
+  border-color: #86efac;
+  border-left-color: #16a34a;
+  box-shadow: 0 8px 24px rgba(22,163,74,.18);
+  transform: translateY(-2px);
 }
 .stock-card:hover {
-  border-color: #ffb4b4;
-  box-shadow: 0 6px 18px rgba(230,57,70,.15);
+  transform: translateY(-2px);
+}
+
+.card-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+  min-height: 18px;
+  font-size: 11px;
+}
+.card-rank {
+  color: #999; font-weight: 600;
+  font-family: 'SF Mono', Menlo, monospace;
+}
+.limit-tag {
+  font-weight: 700 !important;
+  letter-spacing: 1px;
+}
+.card-vol {
+  color: #999;
+  font-family: 'SF Mono', Menlo, monospace;
+  font-size: 10px;
 }
 
 .card-row1 {
@@ -474,22 +599,34 @@ onMounted(async () => {
 
 .card-row2 {
   display: flex; align-items: baseline; justify-content: space-between;
-  margin: 10px 0 10px;
+  margin: 6px 0 10px;
   transform: translateZ(20px);
 }
 .card-row2 .price {
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 900;
   color: #000;
   letter-spacing: -0.8px;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
+.pct-wrap {
+  display: flex; align-items: center; gap: 4px;
+}
+.card-row2 .arrow {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+.card-row2 .arrow.up   { color: #e63946; }
+.card-row2 .arrow.down { color: #16a34a; }
 .card-row2 .pct {
   font-size: 17px;
   font-weight: 800;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
 .up   { color: #e63946; }
 .down { color: #16a34a; }
+.flat { color: #6b7280; }
 
 .card-row3, .card-row4 {
   display: flex; justify-content: space-between;
