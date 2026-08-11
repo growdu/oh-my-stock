@@ -69,8 +69,12 @@
           <div class="card-header">
             <span class="sym">{{ s.symbol }}</span>
             <span class="name" :title="s.name">{{ s.name }}</span>
-            <el-tag size="small" effect="plain" class="market-tag">{{ boardLabel(s) }}</el-tag>
+            <el-tag size="small" effect="plain" class="market-tag" :class="boardTagClass(s)">{{ boardLabel(s) }}</el-tag>
             <span class="rank-no">#{{ rows.indexOf(s) + 1 }}</span>
+          </div>
+
+          <div v-if="s.industry" class="card-industry">
+            <span class="ind-label">行业</span>{{ s.industry }}
           </div>
 
           <!-- 主体：左侧价格区 + 右侧指标网格 -->
@@ -170,6 +174,14 @@ const fmtVol = (v) => {
   return String(v)
 }
 
+
+const boardTagClass = (s) => {
+  const m = s.market || ''
+  if (m === '科创板' || /^688/.test(s.symbol || '')) return 'tag-STAR'
+  if (m === '创业板' || /^30[01]/.test(s.symbol || '')) return 'tag-CHINEXT'
+  if (m === '主板' || m === '深主板' || m === '沈主板') return 'tag-MAIN'
+  return 'tag-OTHER'
+}
 
 const boardLabel = (s) => {
   const sym = String(s.symbol || '')
@@ -473,7 +485,7 @@ onMounted(async () => {
   padding: 4px 4px;
   background: #fff;
   border-radius: 10px;
-  border: 1px solid #ffe0e0;
+  border: 1px solid #ffd0d0;
 }
 .stocks-title {
   margin: 0; font-size: 19px; font-weight: 800; color: #000;
@@ -501,7 +513,7 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(2, 1fr);
-  gap: 12px;
+  gap: 14px;
   min-height: 0;
 }
 @media (max-width: 1280px) { .stocks-grid { grid-template-columns: repeat(3, 1fr); } }
@@ -511,78 +523,88 @@ onMounted(async () => {
 .stock-card {
   position: relative;
   border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  padding: 10px 14px 10px 14px;
+  border-radius: 10px;
+  padding: 14px 16px 14px 16px;
   background: #ffffff;
   overflow: hidden;
-  transition: border-color .2s ease, box-shadow .2s ease;
+  transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
 }
-/* 右侧涨跌色条 */
 .stock-card::after {
   content: '';
   position: absolute;
   top: 0; right: 0; bottom: 0;
-  width: 3px;
+  width: 4px;
 }
 .stock-card.up::after { background: #e63946; }
 .stock-card.down::after { background: #16a34a; }
 .stock-card.flat::after { background: #d1d5db; }
 
 .stock-card.up   { background: #fff8f8; }
-.stock-card.down { background: #f6fbf8; }
+.stock-card.down { background: #f6fbf6; }
 .stock-card:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 4px 16px rgba(0,0,0,.06);
+  transform: translateY(-3px);
+  border-color: #c7d2fe;
+  box-shadow: 0 10px 28px rgba(0,0,0,.10);
 }
 
-/* 头部 */
 .card-header {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 10px;
   margin-bottom: 10px;
-  padding-bottom: 8px;
+  padding-bottom: 10px;
   border-bottom: 1px dashed #f3f4f6;
 }
 .card-header .sym {
-  font-size: 15px; font-weight: 800; color: #1a1a1a;
+  font-size: 18px; font-weight: 800; color: #111;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.4px;
 }
 .card-header .name {
-  font-size: 13px; color: #555; font-weight: 600;
-  max-width: 110px;
+  font-size: 15px; color: #333; font-weight: 700;
+  max-width: 130px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .card-header .market-tag {
   margin-left: auto;
-  background: #f0f9ff !important;
-  border-color: #bae6fd !important;
-  color: #0369a1 !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
 }
+.card-header .market-tag.tag-STAR   { background: #fdf2f8 !important; border-color: #f9a8d4 !important; color: #be185d !important; }
+.card-header .market-tag.tag-CHINEXT{ background: #fff7ed !important; border-color: #fdba74 !important; color: #c2410c !important; }
+.card-header .market-tag.tag-MAIN   { background: #f0f9ff !important; border-color: #bae6fd !important; color: #0369a1 !important; }
+.card-header .market-tag.tag-OTHER  { background: #f3f4f6 !important; border-color: #d1d5db !important; color: #4b5563 !important; }
 .card-header .rank-no {
-  font-size: 11px; color: #999;
+  font-size: 13px; color: #999;
   font-family: 'SF Mono', Menlo, monospace;
-  font-weight: 600;
+  font-weight: 700;
 }
 
-/* 主体：左侧价格区 + 右侧指标网格 */
+.card-industry {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 600;
+  margin: 0 0 10px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card-industry .ind-label { color: #9ca3af; margin-right: 4px; font-weight: 500; }
+
 .card-body {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   align-items: stretch;
 }
 
 .price-section {
   flex: 0 0 auto;
-  min-width: 115px;
-  padding-right: 12px;
+  min-width: 132px;
+  padding-right: 14px;
   border-right: 1px dashed #e5e7eb;
   display: flex; flex-direction: column; justify-content: center;
 }
 .price-section .price {
-  font-size: 28px;
+  font-size: 36px;
   font-weight: 900;
-  letter-spacing: -0.8px;
+  letter-spacing: -1px;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
   line-height: 1.05;
 }
@@ -590,22 +612,22 @@ onMounted(async () => {
 .price-section.down .price { color: #16a34a; }
 
 .pct-row {
-  display: flex; align-items: center; gap: 3px;
-  margin-top: 5px;
-  font-weight: 700;
+  display: flex; align-items: center; gap: 4px;
+  margin-top: 6px;
+  font-weight: 800;
 }
 .pct-row.up   { color: #e63946; }
 .pct-row.down { color: #16a34a; }
-.pct-row .arrow { font-size: 12px; }
+.pct-row .arrow { font-size: 14px; }
 .pct-row .pct {
-  font-size: 14px;
+  font-size: 18px;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
 
 .amt {
-  font-size: 12px; font-weight: 600;
+  font-size: 14px; font-weight: 700;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
-  margin-top: 3px;
+  margin-top: 4px;
 }
 .amt.up   { color: #e63946; }
 .amt.down { color: #16a34a; }
@@ -614,22 +636,23 @@ onMounted(async () => {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 5px 14px;
+  gap: 8px 18px;
   align-content: center;
 }
 .metric {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 6px;
-  font-size: 11px;
-  line-height: 1.5;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.45;
 }
 .metric span {
-  color: #888;
+  color: #6b7280;
   font-weight: 500;
 }
 .metric b {
-  color: #1a1a1a;
-  font-weight: 700;
+  color: #111;
+  font-weight: 800;
+  font-size: 14px;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
 .metric b.up   { color: #e63946; }
