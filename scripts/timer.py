@@ -1,14 +1,14 @@
 """
 timer.py
 ========
-定时调度：
-  - 16:00  拉增量日线   (get_stock_daily.py)
-  - 16:05  更新资金流    (get_money_flow_v2.py)
-  - 16:30  增量拉财报    (get_financial_info.py)
-  - 17:00  计算技术指标  (compute_indicators.py)
-  - 17:05  刷新物化视图  (refresh_mv.py)
+定时调度（v2）：
+  - 16:00  daily_refresh.sh     (拉 K 线 → 资金流 → 算指标 → 刷 MV)
+  - 17:00  refresh_mv.py        (兜底再刷一次，防止 daily 流程异常时数据不一致)
 
-支持 Windows / Linux / macOS，自动寻找 .venv/bin/python
+daily_refresh.sh 内部串联：
+  fetch_daily → fetch_money_flow → compute_indicators → refresh_mv
+
+支持 Windows / Linux / macOS，自动寻找 .venv/bin/python 或 bash
 """
 import datetime
 import os
@@ -25,14 +25,20 @@ LOGS_DIR.mkdir(exist_ok=True)
 
 IMMEDIATE_RUN = int(os.environ.get("IMMEDIATE_RUN", "0"))
 
-# (脚本相对路径, 每日执行时刻)
+# (启动命令, 每日执行时刻, 显示名)
 SCHEDULE = [
-    (SCRIPT_DIR / "get_stock_daily.py",      "16:00"),
-    (SCRIPT_DIR / "get_money_flow_v2.py",    "16:05"),
-    (SCRIPT_DIR / "get_financial_info.py",   "16:30"),
-    (SCRIPT_DIR / "compute_indicators.py",   "17:00"),
-    (SCRIPT_DIR / "refresh_mv.py",           "17:05"),
+    (["bash", str(SCRIPT_DIR / "daily_refresh.sh")],            "16:00", "daily_refresh"),
+    ([sys.executable, str(SCRIPT_DIR / "refresh_mv.py")],        "17:00", "refresh_mv_fallback"),
 ]
+
+
+def bash_bin() -> str:
+    if os.name == "nt":
+        cand = SCRIPT_DIR / ".venv" / "Scripts" / "bash.exe"
+        if cand.exists(): return str(cand)
+    for n in ("bash", "/bin/bash", "/usr/bin/bash"):
+        if Path(n).exists(): return n
+    return "bash"
 
 
 def python_bin() -> str:
@@ -46,24 +52,38 @@ def python_bin() -> str:
     return sys.executable
 
 
+def resolve_cmd(cmd):
+    """把 sys.executable / bash 占位符替换成真实路径"""
+    out = []
+    for x in cmd:
+        if x == "bash":
+            out.append(bash_bin())
+        elif x == sys.executable or x == "python":
+            out.append(python_bin())
+        else:
+            out.append(x)
+    return out
+
+
 def log(msg: str):
     ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{ts}] {msg}", flush=True)
 
 
-def run(script: Path):
-    if not script.exists():
-        log(f"⚠️  脚本不存在: {script}")
-        return None
+def run(cmd):
+    if isinstance(cmd, list) and cmd[0] == "bash":
+        cmd = ["bash", str(SCRIPT_DIR / cmd[1].name)] if len(cmd) == 2 else cmd
+    resolved = resolve_cmd(cmd)
+    script_name = Path(resolved[-1]).stem
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = LOGS_DIR / f"{stamp}_{script.stem}.log"
-    log(f"▶  {script.name}  -> {log_file.name}")
+    log_file = LOGS_DIR / f"{stamp}_{script_name}.log"
+    log(f"▶  {' '.join(resolved)}  -> {log_file.name}")
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
     env["CONFIG_INI"] = str(SCRIPT_DIR / "config.ini")
     with open(log_file, "w", encoding="utf-8", buffering=1) as f:
         proc = subprocess.Popen(
-            [python_bin(), str(script)],
+            resolved,
             stdout=f, stderr=subprocess.STDOUT,
             text=True, encoding="utf-8",
             env=env, bufsize=1,
@@ -71,21 +91,22 @@ def run(script: Path):
     return proc
 
 
-def job(script: Path, when: str):
-    run(script)
+def job(cmd, when):
+    run(cmd)
 
 
 def main():
     log("=== oh-my-stock 调度器启动 ===")
     log(f"Python: {python_bin()}")
-    log(f"脚本数: {len(SCHEDULE)}")
-    for sc, when in SCHEDULE:
-        schedule.every().day.at(when).do(job, sc, when)
-        log(f"  ⏰ {when}  {sc.name}")
+    log(f"Bash:   {bash_bin()}")
+    log(f"任务数: {len(SCHEDULE)}")
+    for cmd, when, name in SCHEDULE:
+        schedule.every().day.at(when).do(job, cmd, when)
+        log(f"  ⏰ {when}  {name}")
 
     if IMMEDIATE_RUN:
-        log("IMMEDIATE_RUN=1，立即并行执行全部脚本")
-        procs = [run(sc) for sc, _ in SCHEDULE]
+        log("IMMEDIATE_RUN=1，立即并行执行全部任务")
+        procs = [run(cmd) for cmd, _, _ in SCHEDULE]
 
     try:
         while True:
