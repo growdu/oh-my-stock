@@ -85,11 +85,118 @@ var All = []Preset{
 	},
 	{
 		ID: "quality-stocks", Name: "稳健基本面",
-		Description: "当前模型：PE-TTM 0-200（多数股缺 PE，放宽到 200），覆盖主板/创业板/科创板。",
+		Description: "PE-TTM 0~80、PB<10 的主板/创业板/科创板，要求估值字段非空。",
 		Expression: map[string]interface{}{
 			"all": []map[string]interface{}{
 				boardFilter([]string{"主板", "创业板", "科创板"}),
-				{"type": "field_between", "name": "pe_ttm", "min": 0, "max": 200},
+				{"type": "field_between", "name": "pe_ttm", "min": 0, "max": 80},
+				{"type": "field", "name": "pb", "op": "lt", "value": 10},
+			},
+			"exclude": commonExcludes(),
+		},
+	},
+	{
+		ID: "ma-golden-cross", Name: "均线金叉",
+		Description: "MA5 上穿 MA10，同时站上 MA20；属于典型多头启动信号。",
+		Expression: map[string]interface{}{
+			"all": []map[string]interface{}{
+				boardFilter([]string{"主板", "创业板", "科创板"}),
+				{"type": "ma_cross", "fast": "ma5", "slow": "ma10", "direction": "golden"},
+				{"type": "ma_compare", "fast": "ma5", "slow": "ma20", "op": "gt"},
+				{"type": "ma_compare", "fast": "ma10", "slow": "ma20", "op": "gt"},
+				{"type": "ma_slope", "ma": "ma20", "days": 3, "op": "gt"},
+			},
+			"exclude": commonExcludes(),
+		},
+	},
+	{
+		ID: "ma-death-cross", Name: "均线死叉",
+		Description: "MA5 下穿 MA20，进入空头排列；适合风险规避。",
+		Expression: map[string]interface{}{
+			"all": []map[string]interface{}{
+				boardFilter([]string{"主板", "创业板", "科创板"}),
+				{"type": "ma_cross", "fast": "ma5", "slow": "ma20", "direction": "death"},
+				{"type": "ma_compare", "fast": "ma5", "slow": "ma60", "op": "lt"},
+			},
+			"exclude": commonExcludes(),
+		},
+	},
+	{
+		ID: "oversold-bounce", Name: "超卖反弹",
+		Description: "RSI6<30 触底 + KDJ 金叉 + 站上 MA5，典型短线反弹。",
+		Expression: map[string]interface{}{
+			"all": []map[string]interface{}{
+				boardFilter([]string{"主板", "创业板", "科创板"}),
+				{"type": "field", "name": "rsi6", "op": "lt", "value": 30},
+				{"type": "kdj_cross", "location": "any"},
+				{"type": "close_vs_ma", "ma": "ma5", "op": "gt"},
+			},
+			"exclude": commonExcludes(),
+		},
+	},
+	{
+		ID: "ma-converge", Name: "均线粘合",
+		Description: "MA5/10/20 三线粘合（最大与最小乖离<2%），等待方向选择。",
+		Expression: map[string]interface{}{
+			"all": []map[string]interface{}{
+				boardFilter([]string{"主板", "创业板", "科创板"}),
+				{"type": "ma_alignment", "order": []string{"ma5", "ma10", "ma20"}},
+				{"type": "bias", "ma": "ma20", "min": -2, "max": 2},
+				{"type": "turnover_rate_range", "min": 1, "max": 15},
+			},
+			"exclude": commonExcludes(),
+		},
+	},
+	{
+		ID: "boll-bounce", Name: "BOLL 中轨反弹",
+		Description: "BOLL 下轨附近 + 站上中轨 + MACD 柱转正，趋势拐点。",
+		Expression: map[string]interface{}{
+			"all": []map[string]interface{}{
+				boardFilter([]string{"主板", "创业板", "科创板"}),
+				{"type": "boll_position", "position": "lower"},
+				{"type": "close_vs_ma", "ma": "ma5", "op": "gt"},
+				{"type": "macd_cross", "location": "above_zero"},
+			},
+			"exclude": commonExcludes(),
+		},
+	},
+	{
+		ID: "volume-shrink-pullback", Name: "缩量回踩 MA20",
+		Description: "MA5 在 MA20 之上、收盘回踩 MA5 之下、量比<=0.8、换手<5%；强势洗盘形态。",
+		Expression: map[string]interface{}{
+			"all": []map[string]interface{}{
+				boardFilter([]string{"主板", "创业板", "科创板"}),
+				{"type": "ma_compare", "fast": "ma5", "slow": "ma20", "op": "gt"},
+				{"type": "close_vs_ma", "ma": "ma20", "op": "gt"},
+				{"type": "close_vs_ma", "ma": "ma5", "op": "lt"},
+				{"type": "volume_ratio", "max": 0.8},
+				{"type": "turnover_rate_range", "min": 0, "max": 5},
+			},
+			"exclude": commonExcludes(),
+		},
+	},
+	{
+		ID: "limit-up-strong", Name: "强势涨停",
+		Description: "今日涨停（>=9.8%）+ 站上 MA20 + 量比>=1.5。",
+		Expression: map[string]interface{}{
+			"all": []map[string]interface{}{
+				boardFilter([]string{"主板", "创业板", "科创板"}),
+				{"type": "limit_up", "min_pct": 9.8},
+				{"type": "close_vs_ma", "ma": "ma20", "op": "gt"},
+				{"type": "volume_ratio", "min": 1.5},
+			},
+			"exclude": commonExcludes(),
+		},
+	},
+	{
+		ID: "high-position-breakout", Name: "高位突破",
+		Description: "收盘在 60 日区间 [80%, 100%] + MA 多头排列 + 量比放大。",
+		Expression: map[string]interface{}{
+			"all": []map[string]interface{}{
+				boardFilter([]string{"主板", "创业板", "科创板"}),
+				{"type": "close_position", "lookback": 60, "min": 0.8, "max": 1.0},
+				{"type": "ma_alignment", "order": []string{"ma5", "ma10", "ma20", "ma60"}},
+				{"type": "volume_ratio", "min": 1.2},
 			},
 			"exclude": commonExcludes(),
 		},
