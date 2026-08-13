@@ -84,6 +84,7 @@ func main() {
 	stockDaily := v1.Group("/stock-daily-data")
 	{
 		stockDaily.GET("", controllers.GetAllStockDailyData)
+		stockDaily.GET("/:symbol/kline", controllers.GetStockKLine)
 		stockDaily.GET("/:symbol", controllers.GetStockDailyData)
 		stockDaily.POST("", controllers.CreateStockDailyData)
 	}

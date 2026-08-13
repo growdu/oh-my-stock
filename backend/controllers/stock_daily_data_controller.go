@@ -1,10 +1,11 @@
 package controllers
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"oh-my-stock/config"
@@ -55,6 +56,130 @@ func GetStockDailyData(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, records)
+}
+
+
+// @Summary 获取单只股票的K线数据（含MA5/MA10/MA20）
+// @Tags 股票日线数据
+// @Produce json
+// @Param symbol path string true "股票代码"
+// @Param days    query int    false "回溯天数，默认 90，最大 365"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {string} string "Bad Request"
+// @Router /stock-daily-data/{symbol}/kline [get]
+func GetStockKLine(c *gin.Context) {
+	symbol := c.Param("symbol")
+	daysStr := c.DefaultQuery("days", "90")
+
+	days, err := strconv.Atoi(daysStr)
+	if err != nil || days <= 0 || days > 365 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "days must be 1..365"})
+		return
+	}
+
+	// 用一条 SQL JOIN 同时拿到日线和 MA，避免前端两次请求
+	type KlineRow struct {
+		TradeDate     time.Time `json:"trade_date"`
+		Open          float64   `json:"open"`
+		High          float64   `json:"high"`
+		Low           float64   `json:"low"`
+		Close         float64   `json:"close"`
+		Volume        int64     `json:"volume"`
+		ChangePercent float64   `json:"change_percent"`
+		TurnoverRate  float64   `json:"turnover_rate"`
+		Ma5           *float64  `json:"ma5"`
+		Ma10          *float64  `json:"ma10"`
+		Ma20          *float64  `json:"ma20"`
+		Macd          *float64  `json:"macd"`
+		Dif           *float64  `json:"dif"`
+		Dea           *float64  `json:"dea"`
+		KdjK          *float64  `json:"k"   gorm:"column:k"`
+		KdjD          *float64  `json:"d"   gorm:"column:d"`
+		KdjJ          *float64  `json:"j"   gorm:"column:j"`
+		Rsi6          *float64  `json:"rsi6" gorm:"column:rsi6"`
+	}
+	var rows []KlineRow
+
+	sql := `
+		SELECT d.trade_date, d.open, d.high, d.low, d.close,
+		       d.volume, d.change_percent, d.turnover_rate,
+		       i.ma5, i.ma10, i.ma20, i.macd, i.dif, i.dea,
+		       i.k, i.d, i.j, i.rsi6
+		FROM stock_daily_data d
+		LEFT JOIN stock_indicators i
+		  ON i.symbol = d.symbol AND i.calc_date = d.trade_date
+		WHERE d.symbol = ?
+		  AND d.trade_date >= (CURRENT_DATE - (? || ' days')::interval)
+		ORDER BY d.trade_date ASC
+	`
+	if err := config.DB.Raw(sql, symbol, strconv.Itoa(days)).Scan(&rows).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 顺便算一个 5-day MA 的合成线（日线图上叠加"近五日均价线"）— 用 close 五日均线
+	type Candle struct {
+		Date          string  `json:"date"`
+		Open          float64 `json:"open"`
+		High          float64 `json:"high"`
+		Low           float64 `json:"low"`
+		Close         float64 `json:"close"`
+		Volume        int64   `json:"volume"`
+		ChangePercent float64 `json:"change_percent"`
+		TurnoverRate  float64 `json:"turnover_rate"`
+		Ma5           float64 `json:"ma5"`
+		Ma10          float64 `json:"ma10"`
+		Ma20          float64 `json:"ma20"`
+		Avg5          float64 `json:"avg5"`           // 5-day 平均价
+		Macd          float64 `json:"macd"`           // MACD 柱
+		Dif           float64 `json:"dif"`            // DIF 快线
+		Dea           float64 `json:"dea"`            // DEA 慢线
+		KdjK          float64 `json:"k"`
+		KdjD          float64 `json:"d"`
+		KdjJ          float64 `json:"j"`
+		Rsi6          float64 `json:"rsi6"`
+	}
+	candles := make([]Candle, 0, len(rows))
+	closes := make([]float64, 0, len(rows))
+	for _, r := range rows {
+		closes = append(closes, r.Close)
+	}
+	for idx, r := range rows {
+		var avg5 float64
+		if idx >= 4 {
+			sum := closes[idx] + closes[idx-1] + closes[idx-2] + closes[idx-3] + closes[idx-4]
+			avg5 = sum / 5
+		}
+		c := Candle{
+			Date:          r.TradeDate.Format("2006-01-02"),
+			Open:          r.Open,
+			High:          r.High,
+			Low:           r.Low,
+			Close:         r.Close,
+			Volume:        r.Volume,
+			ChangePercent: r.ChangePercent,
+			TurnoverRate:  r.TurnoverRate,
+			Avg5:          avg5,
+		}
+		if r.Ma5 != nil  { c.Ma5  = *r.Ma5 }
+		if r.Ma10 != nil { c.Ma10 = *r.Ma10 }
+		if r.Ma20 != nil { c.Ma20 = *r.Ma20 }
+		if r.Macd != nil { c.Macd = *r.Macd }
+		if r.Dif  != nil { c.Dif  = *r.Dif }
+		if r.Dea  != nil { c.Dea  = *r.Dea }
+		if r.KdjK != nil { c.KdjK = *r.KdjK }
+		if r.KdjD != nil { c.KdjD = *r.KdjD }
+		if r.KdjJ != nil { c.KdjJ = *r.KdjJ }
+		if r.Rsi6 != nil { c.Rsi6 = *r.Rsi6 }
+		candles = append(candles, c)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"symbol":  symbol,
+		"days":    days,
+		"count":   len(candles),
+		"candles": candles,
+	})
 }
 
 // @Summary 新增股票日线数据
