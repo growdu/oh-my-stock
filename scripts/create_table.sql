@@ -260,6 +260,9 @@ ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS rsi24      DECIMAL(12,4)
 ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS boll_upper DECIMAL(12,4);
 ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS boll_mid   DECIMAL(12,4);
 ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS boll_lower DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS net_profit      DECIMAL(20,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS net_profit_yoy  DECIMAL(10,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS revenue_yoy     DECIMAL(10,4);
 CREATE INDEX IF NOT EXISTS idx_target_symbol ON target_trend_stock(symbol);
 CREATE INDEX IF NOT EXISTS idx_target_date   ON target_trend_stock(matched_at);
 CREATE INDEX IF NOT EXISTS idx_target_rule   ON target_trend_stock(rule_name);

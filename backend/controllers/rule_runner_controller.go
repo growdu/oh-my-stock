@@ -174,7 +174,10 @@ func runRuleCore(rule models.UserStockRule) []models.TargetTrendStock {
 		       COALESCE(cur.boll_lower, 0) AS boll_lower,
 		       COALESCE(prev.ma5, 0)       AS ma5_prev,
 		       COALESCE(prev.ma10, 0)      AS ma10_prev,
-		       COALESCE(prev.ma20, 0)      AS ma20_prev
+		       COALESCE(prev.ma20, 0)      AS ma20_prev,
+		       fin.net_profit      AS net_profit,
+		       fin.net_profit_yoy  AS net_profit_yoy,
+		       fin.revenue_yoy     AS revenue_yoy
 		FROM stock_history_mv h
 		JOIN latest l ON l.symbol = h.symbol AND l.trade_date = h.trade_date
 		LEFT JOIN streak_up   su ON su.symbol = h.symbol
@@ -194,6 +197,13 @@ func runRuleCore(rule models.UserStockRule) []models.TargetTrendStock {
 		    ORDER BY calc_date DESC
 		    LIMIT 1
 		) prev ON TRUE
+		LEFT JOIN LATERAL (
+		    SELECT net_profit, net_profit_yoy, revenue_yoy
+		    FROM stock_financial_data
+		    WHERE symbol = h.symbol
+		    ORDER BY report_date DESC
+		    LIMIT 1
+		) fin ON TRUE
 		WHERE 1=1 %s
 		ORDER BY h.change_percent DESC
 		LIMIT 200
@@ -230,6 +240,9 @@ func runRuleCore(rule models.UserStockRule) []models.TargetTrendStock {
 		BollUpper                    float64 `gorm:"column:boll_upper"`
 		BollMid                      float64 `gorm:"column:boll_mid"`
 		BollLower                    float64 `gorm:"column:boll_lower"`
+		NetProfit                    *float64 `gorm:"column:net_profit"`
+		NetProfitYoy                 *float64 `gorm:"column:net_profit_yoy"`
+		RevenueYoy                   *float64 `gorm:"column:revenue_yoy"`
 	}
 	var rows []rawRow
 	if err := config.DB.Raw(baseSQL, args...).Scan(&rows).Error; err != nil {
@@ -272,6 +285,9 @@ func runRuleCore(rule models.UserStockRule) []models.TargetTrendStock {
 			BollUpper:     r.BollUpper,
 			BollMid:       r.BollMid,
 			BollLower:     r.BollLower,
+			NetProfit:     r.NetProfit,
+			NetProfitYoy:  r.NetProfitYoy,
+			RevenueYoy:    r.RevenueYoy,
 		})
 	}
 	if len(matched) > 0 {
