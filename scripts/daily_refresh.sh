@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # daily_refresh.sh — 一键日刷数据管道
-# 串联新脚本：basic_info → fetch_daily → fetch_money_flow → compute_indicators → refresh_mv
+# 串联新脚本：basic_info → fetch_daily → fetch_money_flow → fetch_financial_lite → compute_indicators → refresh_mv
 #
 # 用法:
 #   ./daily_refresh.sh                 # 默认：跳过 basic_info (首次用 --initial)
@@ -91,6 +91,7 @@ fi
 if [[ $SKIP_FETCH -eq 0 ]]; then
     run_step "拉取 K 线" fetch_daily.py
     run_step "拉取资金流" fetch_money_flow.py
+    run_step "拉取财报"    fetch_financial_lite.py
 else
     echo "⏭  跳过数据拉取 (--skip-fetch)"
 fi
