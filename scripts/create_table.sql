@@ -333,3 +333,11 @@ END $$;
 -- 11. 物化视图：stock_history_mv（日线 + 指标 + 资金流 三表对齐）
 --     由 scripts/refresh_mv.py 负责创建/刷新
 -- ============================================================
+
+-- ============================================================
+-- 兼容已部署表：补齐 stock_financial_data 同比增长率列
+-- （唯一约束 uk_stock_financial (symbol, report_date, report_type) 已在建表语句里声明，
+--   这里只补列，不重复加约束）
+-- ============================================================
+ALTER TABLE stock_financial_data ADD COLUMN IF NOT EXISTS net_profit_yoy DECIMAL(10,4);
+ALTER TABLE stock_financial_data ADD COLUMN IF NOT EXISTS revenue_yoy    DECIMAL(10,4);
