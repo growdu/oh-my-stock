@@ -195,13 +195,21 @@ func compileOne(c map[string]interface{}, idx int) (string, []interface{}, int, 
 
 	// --- 量能 ---
 	case "volume_ratio":
-		// latest.volume / ranked.vol_avg5 >= min
-		minV, ok := numericArg(c["min"])
-		if !ok {
-			return "", nil, 0, fmt.Errorf("volume_ratio: need min")
+		// latest.volume / ranked.vol_avg5 与阈值比较：可只传 min (放量)、只传 max (缩量)、或同时传 (区间)
+		minV, hasMin := numericArg(c["min"])
+		maxV, hasMax := numericArg(c["max"])
+		if !hasMin && !hasMax {
+			return "", nil, 0, fmt.Errorf("volume_ratio: need min or max")
 		}
-		return fmt.Sprintf("ranked.vol_avg5 > 0 AND latest.volume / ranked.vol_avg5 >= $%d", idx),
-			[]interface{}{minV}, 1, nil
+		guard := "latest.vol_avg5 > 0"
+		expr := "latest.volume / latest.vol_avg5"
+		if hasMin && hasMax {
+			return fmt.Sprintf(guard+" AND "+expr+" BETWEEN $%d AND $%d", idx, idx+1), []interface{}{minV, maxV}, 2, nil
+		}
+		if hasMin {
+			return fmt.Sprintf(guard+" AND "+expr+" >= $%d", idx), []interface{}{minV}, 1, nil
+		}
+		return fmt.Sprintf(guard+" AND "+expr+" <= $%d", idx), []interface{}{maxV}, 1, nil
 
 	case "volume_increasing":
 		// days: 3 min_ratio: 1.2  → V(t) > V(t-1) > V(t-2) AND V(t)/V(t-2) >= min_ratio
@@ -283,7 +291,7 @@ func compileOne(c map[string]interface{}, idx int) (string, []interface{}, int, 
 			d = 1
 		}
 		return fmt.Sprintf("ranked.close_lag%d IS NOT NULL AND ranked.close_lag%d > 0 AND ((latest.close - ranked.close_lag%d) / ranked.close_lag%d * 100) <= $%d",
-			d, d, d, d, idx),
+				d, d, d, d, idx),
 			[]interface{}{maxPct}, 1, nil
 
 	// --- 突破 / 交叉 ---
@@ -409,6 +417,240 @@ func compileOne(c map[string]interface{}, idx int) (string, []interface{}, int, 
 		}
 		return "(" + strings.Join(conds, " OR ") + ")", nil, 0, nil
 
+	// --- 行业筛选 ---
+	case "industry_in":
+		raw, _ := c["industries"].([]interface{})
+		if len(raw) == 0 {
+			return "", nil, 0, fmt.Errorf("industry_in: need industries[]")
+		}
+		conds := []string{}
+		args := []interface{}{}
+		for _, x := range raw {
+			s, _ := x.(string)
+			if s == "" {
+				continue
+			}
+			// 防注入：把单引号转义成两个
+			conds = append(conds, fmt.Sprintf("basic.industry = $%d", idx+len(args)))
+			args = append(args, strings.ReplaceAll(s, "'", "''"))
+		}
+		if len(conds) == 0 {
+			return "", nil, 0, fmt.Errorf("industry_in: need industries[]")
+		}
+		return "(" + strings.Join(conds, " OR ") + ")", args, len(args), nil
+
+	case "industry_not_in":
+		raw, _ := c["industries"].([]interface{})
+		if len(raw) == 0 {
+			return "", nil, 0, fmt.Errorf("industry_not_in: need industries[]")
+		}
+		conds := []string{}
+		args := []interface{}{}
+		for _, x := range raw {
+			s, _ := x.(string)
+			if s == "" {
+				continue
+			}
+			conds = append(conds, fmt.Sprintf("basic.industry <> $%d", idx+len(args)))
+			args = append(args, strings.ReplaceAll(s, "'", "''"))
+		}
+		if len(conds) == 0 {
+			return "", nil, 0, fmt.Errorf("industry_not_in: need industries[]")
+		}
+		return "(" + strings.Join(conds, " AND ") + ")", args, len(args), nil
+
+	// --- 区间 / 阈值过滤 ---
+	case "change_percent_range":
+		// 涨跌幅在 [min, max] 之间（百分比，可正可负）
+		minV, ok1 := numericArg(c["min"])
+		maxV, ok2 := numericArg(c["max"])
+		if !ok1 || !ok2 {
+			return "", nil, 0, fmt.Errorf("change_percent_range: need min/max")
+		}
+		return fmt.Sprintf("latest.change_percent IS NOT NULL AND latest.change_percent BETWEEN $%d AND $%d", idx, idx+1), []interface{}{minV, maxV}, 2, nil
+
+	case "turnover_rate_range":
+		minV, ok1 := numericArg(c["min"])
+		maxV, ok2 := numericArg(c["max"])
+		if !ok1 || !ok2 {
+			return "", nil, 0, fmt.Errorf("turnover_rate_range: need min/max")
+		}
+		return fmt.Sprintf("latest.turnover_rate IS NOT NULL AND latest.turnover_rate BETWEEN $%d AND $%d", idx, idx+1), []interface{}{minV, maxV}, 2, nil
+
+	case "amount_range":
+		// 成交额 = volume * close（元）。可指定 min/max
+		minV, ok1 := numericArg(c["min"])
+		maxV, ok2 := numericArg(c["max"])
+		if !ok1 || !ok2 {
+			return "", nil, 0, fmt.Errorf("amount_range: need min/max")
+		}
+		return fmt.Sprintf("(latest.volume IS NOT NULL AND latest.close IS NOT NULL AND latest.volume * latest.close BETWEEN $%d AND $%d)", idx, idx+1), []interface{}{minV, maxV}, 2, nil
+
+	// --- MA 交叉 ---
+	case "ma_cross":
+		// 均线金叉/死叉：fast 穿越 slow
+		// direction: golden (fast 上穿 slow) | death (fast 下穿 slow)
+		fast, _ := c["fast"].(string)
+		slow, _ := c["slow"].(string)
+		direction, _ := c["direction"].(string)
+		if direction == "" {
+			direction = "golden"
+		}
+		fastCol, err := resolveField(fast)
+		if err != nil {
+			return "", nil, 0, err
+		}
+		slowCol, err := resolveField(slow)
+		if err != nil {
+			return "", nil, 0, err
+		}
+		if fastCol == slowCol {
+			return "", nil, 0, fmt.Errorf("ma_cross: fast==slow")
+		}
+		// 映射到 lag 前缀
+		fastLag := fastCol + "_lag1"
+		slowLag := slowCol + "_lag1"
+		nonNull := []string{
+			fmt.Sprintf("ranked.%s IS NOT NULL", fastLag),
+			fmt.Sprintf("ranked.%s IS NOT NULL", slowLag),
+			fmt.Sprintf("latest.%s IS NOT NULL", fastCol),
+			fmt.Sprintf("latest.%s IS NOT NULL", slowCol),
+		}
+		var crossCond string
+		switch direction {
+		case "golden":
+			crossCond = fmt.Sprintf("ranked.%s <= ranked.%s AND latest.%s > latest.%s", fastLag, slowLag, fastCol, slowCol)
+		case "death":
+			crossCond = fmt.Sprintf("ranked.%s >= ranked.%s AND latest.%s < latest.%s", fastLag, slowLag, fastCol, slowCol)
+		default:
+			return "", nil, 0, fmt.Errorf("ma_cross: bad direction %q", direction)
+		}
+		return "(" + strings.Join(nonNull, " AND ") + " AND " + crossCond + ")", nil, 0, nil
+
+	// --- 连续走势 ---
+	case "yin_streak":
+		// 连续阴线 days 天
+		days, _ := numericArg(c["days"])
+		d := int(days)
+		if d < 1 {
+			d = 1
+		}
+		var conds []string
+		for i := 0; i < d; i++ {
+			conds = append(conds, fmt.Sprintf("ranked.yang_lag%d = FALSE", i))
+		}
+		return strings.Join(conds, " AND "), nil, 0, nil
+
+	case "yang_then_yin":
+		// 阳线接阴线：今天收阴、昨天收阳
+		return "ranked.yang_lag0 = FALSE AND ranked.yang_lag1 = TRUE", nil, 0, nil
+
+	// --- 价格 / 形态 ---
+	case "low_breakout":
+		// 跌破 N 日新低：close < min(low, lookback)
+		days, _ := numericArg(c["lookback"])
+		d := int(days)
+		if d < 1 {
+			d = 1
+		}
+		return fmt.Sprintf("ranked.low_min%d IS NOT NULL AND latest.close < ranked.low_min%d", d, d), nil, 0, nil
+
+	case "close_position":
+		// 当前收盘在 N 日区间内的位置：(close - low_min) / (high_max - low_min)
+		// 取值 [0, 1]：0=踩 N 日低点，1=触 N 日高点
+		days, _ := numericArg(c["lookback"])
+		minV, ok1 := numericArg(c["min"])
+		maxV, ok2 := numericArg(c["max"])
+		if !ok1 || !ok2 {
+			return "", nil, 0, fmt.Errorf("close_position: need min/max")
+		}
+		d := int(days)
+		if d < 1 {
+			d = 1
+		}
+		return fmt.Sprintf("(ranked.low_min%d IS NOT NULL AND ranked.high_max%d IS NOT NULL AND ranked.high_max%d > ranked.low_min%d AND ((latest.close - ranked.low_min%d) / (ranked.high_max%d - ranked.low_min%d)) BETWEEN $%d AND $%d)",
+				d, d, d, d, d, d, d, idx, idx+1),
+			[]interface{}{minV, maxV}, 2, nil
+
+	case "limit_up":
+		// 单日涨幅 >= min_pct（默认 9.5，照顾主板 10% 涨停线）
+		minPct, ok := numericArg(c["min_pct"])
+		if !ok {
+			minPct = 9.5
+		}
+		return fmt.Sprintf("latest.change_percent IS NOT NULL AND latest.change_percent >= $%d", idx),
+			[]interface{}{minPct}, 1, nil
+
+	case "limit_down":
+		// 单日跌幅 <= max_pct（默认 -9.5）
+		maxPct, ok := numericArg(c["max_pct"])
+		if !ok {
+			maxPct = -9.5
+		}
+		return fmt.Sprintf("latest.change_percent IS NOT NULL AND latest.change_percent <= $%d", idx),
+			[]interface{}{maxPct}, 1, nil
+
+	// --- 衍生指标 ---
+	case "bias":
+		// 乖离率 = (close - ma) / ma * 100
+		ma, _ := c["ma"].(string)
+		minV, ok1 := numericArg(c["min"])
+		maxV, ok2 := numericArg(c["max"])
+		if !ok1 || !ok2 {
+			return "", nil, 0, fmt.Errorf("bias: need min/max")
+		}
+		maCol, err := resolveField(ma)
+		if err != nil {
+			return "", nil, 0, err
+		}
+		return fmt.Sprintf("(latest.%s IS NOT NULL AND latest.%s <> 0 AND latest.close IS NOT NULL AND ((latest.close - latest.%s) / latest.%s * 100) BETWEEN $%d AND $%d)",
+				maCol, maCol, maCol, maCol, idx, idx+1),
+			[]interface{}{minV, maxV}, 2, nil
+
+	case "boll_pct_b":
+		// %B = (close - lower) / (upper - lower)，>1 突破上轨，<0 跌破下轨
+		minV, ok1 := numericArg(c["min"])
+		maxV, ok2 := numericArg(c["max"])
+		if !ok1 || !ok2 {
+			return "", nil, 0, fmt.Errorf("boll_pct_b: need min/max")
+		}
+		return `(latest.boll_upper IS NOT NULL AND latest.boll_lower IS NOT NULL AND latest.boll_upper > latest.boll_lower AND latest.close IS NOT NULL AND ((latest.close - latest.boll_lower) / (latest.boll_upper - latest.boll_lower)) BETWEEN $%d AND $%d)`,
+			[]interface{}{minV, maxV}, 2, nil
+
+	case "boll_width":
+		// BOLL 宽度 = (upper - lower) / mid，越大说明波动越大
+		minV, ok1 := numericArg(c["min"])
+		maxV, ok2 := numericArg(c["max"])
+		if !ok1 || !ok2 {
+			return "", nil, 0, fmt.Errorf("boll_width: need min/max")
+		}
+		return `(latest.boll_upper IS NOT NULL AND latest.boll_lower IS NOT NULL AND latest.boll_mid IS NOT NULL AND latest.boll_mid <> 0 AND ((latest.boll_upper - latest.boll_lower) / latest.boll_mid) BETWEEN $%d AND $%d)`,
+			[]interface{}{minV, maxV}, 2, nil
+
+	case "macd_histogram":
+		// MACD 柱 = (DIF - DEA) * 2
+		// sign: positive | negative | any (默认 any)
+		// growing: true 表示今日柱比昨日更长（绝对值），默认 false
+		sign, _ := c["sign"].(string)
+		if sign == "" {
+			sign = "any"
+		}
+		growing, _ := c["growing"].(bool)
+		if sign == "any" && !growing {
+			return "(latest.dif IS NOT NULL AND latest.dea IS NOT NULL)", nil, 0, nil
+		}
+		cond := "latest.dif IS NOT NULL AND latest.dea IS NOT NULL"
+		switch sign {
+		case "positive":
+			cond += " AND (latest.dif - latest.dea) * 2 > 0"
+		case "negative":
+			cond += " AND (latest.dif - latest.dea) * 2 < 0"
+		}
+		if growing {
+			cond += " AND ranked.dif_lag1 IS NOT NULL AND ranked.dea_lag1 IS NOT NULL AND ABS(latest.dif - latest.dea) > ABS(ranked.dif_lag1 - ranked.dea_lag1)"
+		}
+		return cond, nil, 0, nil
+
 	default:
 		return "", nil, 0, fmt.Errorf("unknown condition type %q", t)
 	}
@@ -422,7 +664,7 @@ func resolveField(name string) (string, error) {
 		"in_amount", "out_amount":
 		return name, nil
 	case "pe_ttm":
-		return "pettm", nil
+		return "pe_ttm", nil
 	case "pb":
 		return "pb", nil
 	case "ma5", "ma10", "ma20", "ma60":
