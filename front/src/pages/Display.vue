@@ -956,10 +956,16 @@ onMounted(async () => {
   }
   .industry-filter .if-chip { flex: 0 0 auto; }
 
-  /* 股票卡：单列全宽 + 紧凑 */
+  /* 股票卡：单列全宽，解除桌面 '2 行' 限制，让 8 只卡片自然堆叠 */
   .stocks-grid {
     grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;   /* 关键：允许 >2 行 */
     gap: 12px;
+  }
+  /* 父容器允许扩张到内容高度，否则 flex:0 1 auto + min-height:0 会把内容压扁 */
+  .stocks-section {
+    flex: 0 0 auto !important;             /* 关键：不要 shrink */
+    min-height: 0;
   }
   .stock-card {
     padding: 12px 12px 10px;
@@ -1026,7 +1032,8 @@ onMounted(async () => {
     overscroll-behavior-y: contain;
   }
   .rules-section { flex: 0 0 auto; }
-  .stocks-section { flex: 0 1 auto; }
+  .stocks-section { flex: 0 0 auto !important; }
+  .stocks-grid { grid-template-rows: auto !important; }
 }
 
 /* ===== 技术指标条 ===== */
