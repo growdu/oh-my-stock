@@ -7,9 +7,8 @@ fetch_financial_lite.py — 拉年报/季报核心三指标 (净利润/营收/�
       &filter=(SECUCODE="{code}.{market}")
       &ps=6&p=1&st=REPORT_DATE&sr=-1&source=HSF10&client=PC
 
-顺序执行（约 6 分钟跑完全市场 5500 只），刷写一次性 commit。
-每只股票最多保留最近 6 期（约 1.5 年）。
-建议每季报披露期（4/8/10 月）跑一次。
+每只股票最多保留最近 6 期（约 1.5 年）。建议每季报披露期（4/8/10 月）跑一次。
+每 200 只为一个 chunk，立即 UPSERT 入库，中途被杀也不会丢前面的数据。
 """
 import configparser
 import sys
@@ -80,7 +79,7 @@ def fetch_one(sym: str) -> list:
                     "revenue_yoy":    to_num(item.get("TOTALOPERATEREVETZ")),
                 })
             return rows
-        except Exception as e:
+        except Exception:
             if attempt == 0:
                 time.sleep(0.5)
                 continue
@@ -101,32 +100,43 @@ UPSERT_SQL = text("""
         revenue_yoy    = EXCLUDED.revenue_yoy
 """)
 
+CHUNK = 200  # 每 200 只一个 chunk，立即入库
+
 def main():
     eng = create_engine(DB)
     with eng.begin() as conn:
         syms = pd.read_sql("SELECT symbol FROM stock_basic_info", conn)["symbol"].tolist()
-    print(f"[start] {len(syms)} stocks, 6 reports each (sequential)", flush=True)
+    print(f"[start] {len(syms)} stocks, chunk={CHUNK}", flush=True)
 
-    rows = []
-    fail = 0
     t0 = time.time()
+    rows_buf = []
+    fail = 0
+    done = 0
     for i, s in enumerate(syms, 1):
         r = fetch_one(s)
         if not r:
             fail += 1
         else:
-            rows.extend(r)
-        if i % 5 == 0 or i == len(syms):
+            rows_buf.extend(r)
+
+        # chunk 满了就入库
+        if len(rows_buf) >= CHUNK * 6 or i % CHUNK == 0:
+            with eng.begin() as conn:
+                for k in range(0, len(rows_buf), 1000):
+                    conn.execute(UPSERT_SQL, rows_buf[k:k+1000])
+            done += CHUNK if i % CHUNK == 0 else 0
             elapsed = time.time() - t0
             eta = elapsed / i * (len(syms) - i)
-            print(f"  [{i}/{len(syms)}] rows={len(rows)} fail={fail} "
+            print(f"  [{i}/{len(syms)}] flushed={len(rows_buf)} fail={fail} "
                   f"elapsed={elapsed:.0f}s eta={eta:.0f}s", flush=True)
+            rows_buf = []
 
-    print(f"[flush] {len(rows)} rows from {len(syms)-fail} stocks ({fail} failed)", flush=True)
-    with eng.begin() as conn:
-        for i in range(0, len(rows), 1000):
-            conn.execute(UPSERT_SQL, rows[i:i+1000])
-    print(f"[done] upserted {len(rows)} rows in {time.time()-t0:.0f}s", flush=True)
+    # flush 残余
+    if rows_buf:
+        with eng.begin() as conn:
+            for k in range(0, len(rows_buf), 1000):
+                conn.execute(UPSERT_SQL, rows_buf[k:k+1000])
+    print(f"[done] {len(syms)-fail} ok, {fail} fail, total {time.time()-t0:.0f}s", flush=True)
 
 if __name__ == "__main__":
     main()
