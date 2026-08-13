@@ -105,6 +105,50 @@ CREATE TABLE IF NOT EXISTS stock_indicators (
     boll_mid   DECIMAL(12,4),
     boll_lower DECIMAL(12,4),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- 预计算 lag 列（避免规则查询时跑窗口函数）
+    ma5_lag1   DECIMAL(12,4),
+    ma5_lag2   DECIMAL(12,4),
+    ma5_lag3   DECIMAL(12,4),
+    ma10_lag1  DECIMAL(12,4),
+    ma10_lag2  DECIMAL(12,4),
+    ma10_lag3  DECIMAL(12,4),
+    ma20_lag1  DECIMAL(12,4),
+    ma20_lag2  DECIMAL(12,4),
+    ma20_lag3  DECIMAL(12,4),
+    ma60_lag1  DECIMAL(12,4),
+    k_lag1     DECIMAL(12,4),
+    d_lag1     DECIMAL(12,4),
+    dif_lag1   DECIMAL(12,4),
+    dea_lag1   DECIMAL(12,4),
+
+    -- 历史 OHLCV 的 lag（用于阳阴线、量比、净流入窗口判断）
+    yang_lag0  BOOLEAN,
+    yang_lag1  BOOLEAN,
+    yang_lag2  BOOLEAN,
+    yang_lag3  BOOLEAN,
+    close_lag1 DECIMAL(12,4),
+    close_lag2 DECIMAL(12,4),
+    close_lag3 DECIMAL(12,4),
+    close_lag5 DECIMAL(12,4),
+    vol_lag1   DECIMAL(20,4),
+    vol_lag2   DECIMAL(20,4),
+    vol_lag3   DECIMAL(20,4),
+    vol_lag5   DECIMAL(20,4),
+    net_lag1   DECIMAL(20,4),
+    net_lag2   DECIMAL(20,4),
+    net_lag3   DECIMAL(20,4),
+
+    -- 滚动统计（窗口聚合的预计算版本）
+    vol_avg5    DECIMAL(20,4),
+    low_min5    DECIMAL(12,4),
+    low_min20   DECIMAL(12,4),
+    low_min60   DECIMAL(12,4),
+    high_max5   DECIMAL(12,4),
+    high_max30  DECIMAL(12,4),
+    high_max60  DECIMAL(12,4),
+    high_max90  DECIMAL(12,4),
+
     CONSTRAINT uk_stock_indicators UNIQUE (symbol, calc_date)
 );
 CREATE INDEX IF NOT EXISTS idx_stock_indicators_symbol ON stock_indicators(symbol);
@@ -171,8 +215,51 @@ CREATE TABLE IF NOT EXISTS target_trend_stock (
     market            VARCHAR(20),
     matched_at        DATE        NOT NULL,
     created_at        TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+
+    -- 技术指标快照：规则命中时的 MA / MACD / KDJ / RSI / BOLL 当前值 + 昨日 lag
+    ma5               DECIMAL(12,4),
+    ma10              DECIMAL(12,4),
+    ma20              DECIMAL(12,4),
+    ma60              DECIMAL(12,4),
+    ma5_prev          DECIMAL(12,4),
+    ma10_prev         DECIMAL(12,4),
+    ma20_prev         DECIMAL(12,4),
+    macd              DECIMAL(12,4),
+    dif               DECIMAL(12,4),
+    dea               DECIMAL(12,4),
+    k                 DECIMAL(12,4),
+    d                 DECIMAL(12,4),
+    j                 DECIMAL(12,4),
+    rsi6              DECIMAL(12,4),
+    rsi12             DECIMAL(12,4),
+    rsi24             DECIMAL(12,4),
+    boll_upper        DECIMAL(12,4),
+    boll_mid          DECIMAL(12,4),
+    boll_lower        DECIMAL(12,4),
+
     CONSTRAINT uq_target UNIQUE (symbol, rule_name, matched_at)
 );
+
+-- 兼容已存在的表：补齐新增技术指标列
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS ma5        DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS ma10       DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS ma20       DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS ma60       DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS ma5_prev   DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS ma10_prev  DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS ma20_prev  DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS macd       DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS dif        DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS dea        DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS k          DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS d          DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS j          DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS rsi6       DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS rsi12      DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS rsi24      DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS boll_upper DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS boll_mid   DECIMAL(12,4);
+ALTER TABLE target_trend_stock ADD COLUMN IF NOT EXISTS boll_lower DECIMAL(12,4);
 CREATE INDEX IF NOT EXISTS idx_target_symbol ON target_trend_stock(symbol);
 CREATE INDEX IF NOT EXISTS idx_target_date   ON target_trend_stock(matched_at);
 CREATE INDEX IF NOT EXISTS idx_target_rule   ON target_trend_stock(rule_name);
