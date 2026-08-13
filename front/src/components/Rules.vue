@@ -108,23 +108,18 @@
     </el-card>
 
     <!-- 新增规则对话框 -->
-    <el-dialog v-model="createOpen" title="新增规则" width="640">
-      <el-form :model="newRule" label-width="100px">
+    <el-dialog v-model="createOpen" title="新增规则" width="1100" top="5vh" :close-on-click-modal="false">
+      <el-form :model="newRule" label-width="80px">
         <el-form-item label="规则名">
-          <el-input v-model="newRule.rule_name" placeholder="如：连续3天上涨且主力净流入" />
+          <el-input v-model="newRule.rule_name" placeholder="如：连续3天上涨且主力净流入" style="max-width: 360px" />
         </el-form-item>
-        <el-form-item label="规则表达式">
-          <el-input
-            v-model="newRule.rule_expressionStr"
-            type="textarea"
-            :rows="6"
-            placeholder='示例: {"all":[{"type":"field_gt","name":"change_percent","value":5},{"type":"board_in","boards":["创业板"]}],"exclude":[{"type":"is_st"}]}'
-          />
+        <el-form-item label="规则条件">
+          <RuleEditor v-model="newRule.expression" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="createOpen = false">取消</el-button>
-        <el-button type="primary" @click="submitCreate">保存</el-button>
+        <el-button type="primary" @click="submitCreate" :loading="submitting">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -137,12 +132,14 @@ import {
 } from '@/utils/api/rules'
 import { ElMessage } from 'element-plus'
 import { useCard3D } from '@/composables/useCard3D'
+import RuleEditor from '@/components/RuleEditor.vue'
 
 const { onTiltMove, onTiltLeave } = useCard3D({ max: 9 })
 
 const rules      = ref([])
-const newRule    = ref({ rule_name: '', rule_expressionStr: '' })
+const newRule    = ref({ rule_name: '', expression: { all: [], exclude: [{ type: 'is_st' }] } })
 const createOpen = ref(false)
+const submitting = ref(false)
 const lastRunResults   = ref([])
 const lastRunRuleName  = ref('')
 const lastRunMsg       = ref('')
@@ -184,23 +181,33 @@ const getRules_ = async () => {
 }
 
 const openCreate = () => {
-  newRule.value = { rule_name: '', rule_expressionStr: '' }
+  newRule.value = { rule_name: '', expression: { all: [], exclude: [{ type: 'is_st' }] } }
   createOpen.value = true
 }
 
 const submitCreate = async () => {
-  if (!newRule.value.rule_name || !newRule.value.rule_expressionStr) {
-    ElMessage.warning('请填写规则名和表达式')
+  if (!newRule.value.rule_name) {
+    ElMessage.warning('请填写规则名')
     return
   }
-  let expr
-  try { expr = JSON.parse(newRule.value.rule_expressionStr) }
-  catch (e) { return ElMessage.error('表达式不是合法 JSON: ' + e.message) }
-
-  await addRule(newRule.value.rule_name, expr)
-  createOpen.value = false
-  await getRules_()
-  ElMessage.success('已保存')
+  const expr = newRule.value.expression || {}
+  const allCount  = (expr.all  || []).length
+  const anyCount  = (expr.any  || []).length
+  const exclCount = (expr.exclude || []).length
+  if (allCount === 0 && anyCount === 0 && exclCount === 0) {
+    return ElMessage.warning('请至少添加一条规则条件')
+  }
+  submitting.value = true
+  try {
+    await addRule(newRule.value.rule_name, expr)
+    createOpen.value = false
+    await getRules_()
+    ElMessage.success('已保存')
+  } catch (e) {
+    ElMessage.error('保存失败: ' + (e.response?.data?.message || e.message || ''))
+  } finally {
+    submitting.value = false
+  }
 }
 
 const runRuleNow = async (row) => {
