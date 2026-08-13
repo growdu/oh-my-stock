@@ -2,8 +2,21 @@ __pycache__/
 *.pyc
 *.pyo
 *.xlsx
+*.tmp
 *.log
 data/
 .env
 node_modules
 build
+
+# Go 构建产物
+backend/bin/
+
+# 本地配置（含开发期 DB 密码 / JWT secret）
+backend/config.local.json
+
+# 临时脚本（fetch_daily / fetch_money_flow 调试时残留）
+scripts/*.py.tmp
+
+# 部署产物
+deploy/*.tar.gz
