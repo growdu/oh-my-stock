@@ -155,12 +155,45 @@ func runRuleCore(rule models.UserStockRule) []models.TargetTrendStock {
 		       h.net_amount,
 		       COALESCE(su.days, 0) AS consecutive_up_days,
 		       COALESCE(si.days, 0) AS consecutive_inflow_days,
-		       COALESCE(sv.days, 0) AS consecutive_volume_amplify_days
+		       COALESCE(sv.days, 0) AS consecutive_volume_amplify_days,
+		       COALESCE(cur.ma5, 0)        AS ma5,
+		       COALESCE(cur.ma10, 0)       AS ma10,
+		       COALESCE(cur.ma20, 0)       AS ma20,
+		       COALESCE(cur.ma60, 0)       AS ma60,
+		       COALESCE(cur.macd, 0)       AS macd,
+		       COALESCE(cur.dif, 0)        AS dif,
+		       COALESCE(cur.dea, 0)        AS dea,
+		       COALESCE(cur.k, 0)          AS k,
+		       COALESCE(cur.d, 0)          AS d,
+		       COALESCE(cur.j, 0)          AS j,
+		       COALESCE(cur.rsi6, 0)       AS rsi6,
+		       COALESCE(cur.rsi12, 0)      AS rsi12,
+		       COALESCE(cur.rsi24, 0)      AS rsi24,
+		       COALESCE(cur.boll_upper, 0) AS boll_upper,
+		       COALESCE(cur.boll_mid, 0)   AS boll_mid,
+		       COALESCE(cur.boll_lower, 0) AS boll_lower,
+		       COALESCE(prev.ma5, 0)       AS ma5_prev,
+		       COALESCE(prev.ma10, 0)      AS ma10_prev,
+		       COALESCE(prev.ma20, 0)      AS ma20_prev
 		FROM stock_history_mv h
 		JOIN latest l ON l.symbol = h.symbol AND l.trade_date = h.trade_date
 		LEFT JOIN streak_up   su ON su.symbol = h.symbol
 		LEFT JOIN streak_in   si ON si.symbol = h.symbol
 		LEFT JOIN streak_vol  sv ON sv.symbol = h.symbol
+		LEFT JOIN LATERAL (
+		    SELECT ma5, ma10, ma20, ma60, macd, dif, dea, k, d, j,
+		           rsi6, rsi12, rsi24, boll_upper, boll_mid, boll_lower
+		    FROM stock_indicators
+		    WHERE symbol = h.symbol AND calc_date = h.trade_date
+		    LIMIT 1
+		) cur ON TRUE
+		LEFT JOIN LATERAL (
+		    SELECT ma5, ma10, ma20
+		    FROM stock_indicators
+		    WHERE symbol = h.symbol AND calc_date < h.trade_date
+		    ORDER BY calc_date DESC
+		    LIMIT 1
+		) prev ON TRUE
 		WHERE 1=1 %s
 		ORDER BY h.change_percent DESC
 		LIMIT 200
@@ -178,6 +211,25 @@ func runRuleCore(rule models.UserStockRule) []models.TargetTrendStock {
 		ConsecutiveUpDays            int     `gorm:"column:consecutive_up_days"`
 		ConsecutiveInflowDays        int     `gorm:"column:consecutive_inflow_days"`
 		ConsecutiveVolumeAmplifyDays int     `gorm:"column:consecutive_volume_amplify_days"`
+		MA5                          float64 `gorm:"column:ma5"`
+		MA10                         float64 `gorm:"column:ma10"`
+		MA20                         float64 `gorm:"column:ma20"`
+		MA60                         float64 `gorm:"column:ma60"`
+		MA5Prev                      float64 `gorm:"column:ma5_prev"`
+		MA10Prev                     float64 `gorm:"column:ma10_prev"`
+		MA20Prev                     float64 `gorm:"column:ma20_prev"`
+		MACD                         float64 `gorm:"column:macd"`
+		DIF                          float64 `gorm:"column:dif"`
+		DEA                          float64 `gorm:"column:dea"`
+		K                            float64 `gorm:"column:k"`
+		D                            float64 `gorm:"column:d"`
+		J                            float64 `gorm:"column:j"`
+		RSI6                         float64 `gorm:"column:rsi6"`
+		RSI12                        float64 `gorm:"column:rsi12"`
+		RSI24                        float64 `gorm:"column:rsi24"`
+		BollUpper                    float64 `gorm:"column:boll_upper"`
+		BollMid                      float64 `gorm:"column:boll_mid"`
+		BollLower                    float64 `gorm:"column:boll_lower"`
 	}
 	var rows []rawRow
 	if err := config.DB.Raw(baseSQL, args...).Scan(&rows).Error; err != nil {
@@ -201,6 +253,25 @@ func runRuleCore(rule models.UserStockRule) []models.TargetTrendStock {
 			Industry:      r.Industry,
 			Market:        r.Market,
 			MatchedAt:     today,
+			MA5:           r.MA5,
+			MA10:          r.MA10,
+			MA20:          r.MA20,
+			MA60:          r.MA60,
+			MA5Prev:       r.MA5Prev,
+			MA10Prev:      r.MA10Prev,
+			MA20Prev:      r.MA20Prev,
+			MACD:          r.MACD,
+			DIF:           r.DIF,
+			DEA:           r.DEA,
+			K:             r.K,
+			D:             r.D,
+			J:             r.J,
+			RSI6:          r.RSI6,
+			RSI12:         r.RSI12,
+			RSI24:         r.RSI24,
+			BollUpper:     r.BollUpper,
+			BollMid:       r.BollMid,
+			BollLower:     r.BollLower,
 		})
 	}
 	if len(matched) > 0 {
