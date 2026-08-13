@@ -41,6 +41,11 @@
       <span class="ma-line ma10">MA10</span>
       <span class="ma-line ma20">MA20</span>
       <span class="avg-line">五日均价</span>
+      <span class="bar-up">成交量</span>
+      <span class="vol-avg">5日均量</span>
+      <span class="macd-line dif">DIF</span>
+      <span class="macd-line dea">DEA</span>
+      <span class="macd-bar">MACD柱</span>
     </div>
   </el-dialog>
 </template>
@@ -146,6 +151,13 @@ function render(candles) {
   const ma10 = candles.map(c => c.ma10 || null)
   const ma20 = candles.map(c => c.ma20 || null)
   const avg5 = candles.map(c => c.avg5 || null)
+  // 5 日均量（成交量子图叠加参考线）
+  const volAvg5 = candles.map((c, i) => {
+    if (i < 4) return null
+    let s = 0
+    for (let k = i - 4; k <= i; k++) s += (candles[k]?.volume || 0)
+    return s / 5
+  })
   // MACD
   const difArr = candles.map(c => c.dif || null)
   const deaArr = candles.map(c => c.dea || null)
@@ -190,6 +202,7 @@ function render(candles) {
           `<div>高 <b style="color:${color}">${fmt(c.high)}</b></div>`,
           `<div>低 <b style="color:${color}">${fmt(c.low)}</b></div>`,
           `<div>量 <b>${fmt(c.volume / 10000, 0)}万</b> 换手 <b>${fmt(c.turnover_rate, 2)}%</b></div>`,
+          `<div>5日均量 <b>${fmt((volAvg5[idx] || 0) / 10000, 0)}万</b></div>`,
           `<div style="border-top:1px dashed #e5e7eb;margin:4px 0;padding-top:4px;color:#6b7280">MA5 ${fmt(c.ma5)} MA10 ${fmt(c.ma10)} MA20 ${fmt(c.ma20)}</div>`,
           `<div style="color:#6b7280">五日均价 ${fmt(c.avg5)}</div>`,
           `<div style="border-top:1px dashed #e5e7eb;margin:4px 0;padding-top:4px">DIF <b style="color:#3b82f6">${fmt(c.dif)}</b>  DEA <b style="color:#f59e0b">${fmt(c.dea)}</b>  MACD <b style="color:${(c.macd||0)>=0?'#e63946':'#16a34a'}">${fmt(c.macd)}</b></div>`,
@@ -200,9 +213,14 @@ function render(candles) {
     },
     axisPointer: { link: [{ xAxisIndex: 'all' }] },
     grid: [
-      { left: 56, right: 16, top: top1, height: h },
+      { left: 56, right: 16, top: top1, height: h,
+        label: { show: false } },
       { left: 56, right: 16, top: top2, height: vh },
       { left: 56, right: 16, top: top3, height: mh },
+    ],
+    graphic: [
+      { type: 'text', right: 20, top: top2, style: { text: '成交量', fill: '#9ca3af', fontSize: 10 } },
+      { type: 'text', right: 20, top: top3, style: { text: 'MACD',  fill: '#9ca3af', fontSize: 10 } },
     ],
     xAxis: [
       {
@@ -290,6 +308,11 @@ function render(candles) {
         itemStyle: { color: (p) => p.data[2] === 1 ? '#e63946' : '#16a34a' },
         barWidth: '60%',
       },
+      {
+        name: '5日均量', type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: volAvg5,
+        smooth: true, symbol: 'none',
+        lineStyle: { width: 1.2, color: '#0891b2', type: 'dashed' },
+      },
       // MACD子图：DIF、DEA 曲线 + MACD 柱
       {
         name: 'DIF', type: 'line', xAxisIndex: 2, yAxisIndex: 2, data: difArr,
@@ -376,6 +399,29 @@ watch(() => isMobile.value, () => { if (visible.value) loadKLine() })
 .kline-legend .ma10::before { background: #3b82f6; }
 .kline-legend .ma20::before { background: #a855f7; }
 .kline-legend .avg-line::before { background: #dc2626; }
+.kline-legend .bar-up::before {
+  content: ''; display: inline-block; width: 10px; height: 8px;
+  margin-right: 5px; vertical-align: 0;
+  background: linear-gradient(to top, #e63946 50%, #16a34a 50%);
+  border-radius: 1px;
+}
+.kline-legend .vol-avg::before {
+  content: ''; display: inline-block; width: 14px; height: 0;
+  border-top: 2px dashed #0891b2;
+  margin-right: 5px; vertical-align: 3px;
+}
+.kline-legend .macd-line::before {
+  content: ''; display: inline-block; width: 14px; height: 2px;
+  margin-right: 5px; vertical-align: 3px;
+}
+.kline-legend .macd-line.dif::before { background: #3b82f6; }
+.kline-legend .macd-line.dea::before { background: #f59e0b; }
+.kline-legend .macd-bar::before {
+  content: ''; display: inline-block; width: 10px; height: 8px;
+  margin-right: 5px; vertical-align: 0;
+  background: linear-gradient(to top, #e63946 50%, #16a34a 50%);
+  border-radius: 1px;
+}
 
 /* ========= 移动端适配 ========= */
 @media (max-width: 760px) {
