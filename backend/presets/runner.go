@@ -47,6 +47,12 @@ type RunResult struct {
 	BollUpper float64 `json:"boll_upper"`
 	BollMid   float64 `json:"boll_mid"`
 	BollLower float64 `json:"boll_lower"`
+
+	// 财报快照（最新一期）：净利润 / 净利同比 / 营收同比
+	// 用 *float64 让前端能区分"无数据"与"0"
+	NetProfit     *float64 `json:"net_profit,omitempty"`
+	NetProfitYoy  *float64 `json:"net_profit_yoy,omitempty"`
+	RevenueYoy    *float64 `json:"revenue_yoy,omitempty"`
 }
 
 // Run 在 stock_history_mv 上执行预设规则表达式。
@@ -154,9 +160,19 @@ SELECT
   COALESCE(latest.rsi24, 0)     AS rsi24,
   COALESCE(latest.boll_upper, 0) AS boll_upper,
   COALESCE(latest.boll_mid, 0)   AS boll_mid,
-  COALESCE(latest.boll_lower, 0) AS boll_lower
+  COALESCE(latest.boll_lower, 0) AS boll_lower,
+  fin.net_profit     AS net_profit,
+  fin.net_profit_yoy AS net_profit_yoy,
+  fin.revenue_yoy    AS revenue_yoy
 FROM latest
 LEFT JOIN stock_basic_info basic ON basic.symbol = latest.symbol
+LEFT JOIN LATERAL (
+    SELECT net_profit, net_profit_yoy, revenue_yoy
+    FROM stock_financial_data
+    WHERE symbol = latest.symbol
+    ORDER BY report_date DESC
+    LIMIT 1
+) fin ON TRUE
 WHERE ` + "1=1" + `
   AND %s
 ORDER BY board_priority ASC, latest.change_percent DESC, latest.symbol ASC
