@@ -3,24 +3,32 @@
 个人股票分析系统。  
 采集 → 入库 → 计算指标 → 刷新物化视图 → 规则筛选 → Web 可视化。
 
+主页一条主线：**用规则筛股票**。16 条内置预设 + 自定义规则，所有命中结果直接展示 MA / KDJ / RSI / BOLL 等技术形态，点击可看 K 线。
+
 ## 技术栈
 
 | 层 | 技术 |
 |---|---|
 | 前端 | Vue 3 + Vite + Element Plus + ECharts |
 | 后端 | Go 1.24 + Gin + GORM + PostgreSQL |
-| 数据采集 | Python 3.12 + AKShare + pandas + SQLAlchemy |
+| 数据采集 | Python 3.12 + requests + pandas + SQLAlchemy |
 | 鉴权 | 自实现 HMAC-SHA256 JWT（零外部依赖） |
 | 部署 | Docker / docker compose |
+
+## 页面
+
+| 路径 | 用途 | 鉴权 |
+|---|---|---|
+| `/` | 公开展示页：16 个预设单列堆叠 + 命中股票网格（带技术指标 + 行业筛选 + K线弹窗） | 公开 |
+| `/admin/login` | 管理后台登录 | 公开 |
+| `/admin/results` | 管理后台的展示页（与 `/` 视图基本一致） | JWT |
+| `/admin/rules` | 自定义规则管理：可视化编辑 + 立即执行 | JWT |
 
 ## 快速开始（Docker）
 
 ```bash
 cp .env.example .env                 # 改密码 / JWT secret
 docker compose up -d                 # 一键启动 pg + 后端 + 前端 + 物化视图
-# 等 init-mv 完成后
-docker compose run --rm -T backend /app/oh-my-stock &  # 可选：启动后端服务
-# 浏览器打开
 open http://localhost:5173
 ```
 
@@ -29,7 +37,6 @@ open http://localhost:5173
 ### 1) PostgreSQL
 
 ```bash
-# 1) 启动一个 PG 实例（任何方式都行），准备好 DATABASE_URL
 psql "$DATABASE_URL" -f scripts/create_table.sql
 psql "$DATABASE_URL" -f scripts/refresh_mv.sql
 ```
@@ -39,9 +46,8 @@ psql "$DATABASE_URL" -f scripts/refresh_mv.sql
 ```bash
 cd backend
 cp .env.example .env                  # 填数据库 & JWT secret
-export $(cat .env | xargs)            # 注入到当前 shell
-go run .
-# 浏览器打开 http://localhost:3003/swagger/index.html
+export $(cat .env | xargs)
+go run .                              # 监听 :3003，Swagger: http://localhost:3003/swagger/index.html
 ```
 
 ### 3) 前端
@@ -49,29 +55,33 @@ go run .
 ```bash
 cd front
 yarn install
-cp .env.example .env  # 可选，覆盖 VITE_API_BASE
-yarn dev              # 开发模式 (默认代理到 192.168.3.99:3003)
-yarn build            # 生产构建到 dist/
+cp .env.example .env                  # 可选，覆盖 VITE_API_BASE
+yarn dev                              # 默认代理到 192.168.3.99:3003
+yarn build                            # 生产构建到 dist/
 ```
 
-### 4) 数据采集（一次性或定时）
+### 4) 数据采集
 
 ```bash
 cd scripts
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 一次性初始化（顺序）
-python get_basic_info.py            # 1) 拉全部 A 股基础信息
-python get_stock_daily.py            # 2) 拉最新 3 个交易日日线
-python get_money_flow_v2.py          # 3) 拉资金流榜单
-python get_financial_info.py         # 4) 拉财报
-python compute_indicators.py         # 5) 计算 MA/MACD/KDJ/RSI/BOLL
-python refresh_mv.py                 # 6) 创建/刷新物化视图
+# 一键全量初始化（首次部署）
+./daily_refresh.sh --initial
 
-# 每天定时调度（16:00 起）
+# 每天定时调度（16:00 起自动跑）
 IMMEDIATE_RUN=0 python timer.py
 ```
+
+`daily_refresh.sh` 内部依次执行：
+1. `get_basic_info_lite.py` —— 仅 `--initial` 时跑，拉沪深京全量代码+名称
+2. `fetch_daily.py` —— 新浪 K 线（多线程 5000+ 只 / 60 日）
+3. `fetch_money_flow.py` —— 东财主力资金流（5 日）
+4. `compute_indicators.py` —— 全量重算 MA/MACD/KDJ/RSI/BOLL + 预计算 lag/rolling 列
+5. `refresh_mv.py` —— 增量刷新 `stock_history_mv`
+
+支持 `--skip-fetch` / `--skip-compute` / `--skip-mv` 跳过单步。
 
 ## 目录结构
 
@@ -79,43 +89,38 @@ IMMEDIATE_RUN=0 python timer.py
 .
 ├── backend/                 Go HTTP API
 │   ├── config/              配置 + HMAC JWT
-│   ├── controllers/         Gin 控制器层
-│   ├── models/              GORM 数据模型
+│   ├── controllers/         Gin 控制器层（含 stock_daily_data / rule_runner / presets）
+│   ├── models/              GORM 数据模型（含 target_trend_stock 指标快照）
+│   ├── presets/             规则引擎（evaluator / runner / presets 16 条）
 │   ├── middleware/          JWT 中间件
-│   ├── docs/                swag 生成的 OpenAPI 文档
-│   ├── main.go
-│   ├── go.mod
-│   ├── config.json          配置（支持 ${ENV} 占位符）
-│   └── Dockerfile
+│   ├── docs/                swag 生成的 OpenAPI
+│   └── main.go
 ├── front/                   Vue 3 SPA
 │   ├── src/
-│   │   ├── components/      业务组件（K线、规则、自选……）
-│   │   ├── pages/           路由页面（登录/首页）
+│   │   ├── pages/           Display.vue / Results.vue / LoginPage.vue / StockPage.vue
+│   │   ├── components/      Rules.vue / KLineDialog.vue
+│   │   ├── composables/     usePresetCache / useCard3D
 │   │   ├── utils/api/       axios 封装
-│   │   ├── router/
-│   │   ├── App.vue
-│   │   └── main.js
-│   ├── vite.config.js
-│   ├── package.json
-│   ├── Dockerfile
+│   │   └── router/
 │   └── nginx.conf
-├── scripts/                 Python 采集/计算/调度
-│   ├── config.ini           DB URL（占位）
-│   ├── create_table.sql     全量 DDL（含 users、money_flow、target_trend_stock……）
-│   ├── refresh_mv.sql       stock_history_mv 物化视图
-│   ├── get_basic_info.py    股票基础信息
-│   ├── get_stock_daily.py   日线
-│   ├── get_money_flow_v2.py 资金流榜单
-│   ├── get_financial_info.py 财报
-│   ├── compute_indicators.py 技术指标（MA/MACD/KDJ/RSI/BOLL）
+├── scripts/
+│   ├── create_table.sql     全量 DDL（10 张表 + 物化视图）
+│   ├── refresh_mv.sql       stock_history_mv DDL
 │   ├── refresh_mv.py        物化视图创建/刷新
-│   ├── timer.py             调度器（16:00 起）
-│   ├── pyproject.toml
-│   └── requirements.txt
-├── docs/                    库表设计文档
-├── cache/                   离线缓存 CSV
+│   ├── get_basic_info_lite.py   精简版基础信息（按前缀填 market）
+│   ├── fetch_daily.py       新浪 K 线 fetcher
+│   ├── fetch_money_flow.py  东财资金流 fetcher
+│   ├── fetch_quote.py       实时行情 fetcher
+│   ├── compute_indicators.py  v5：单股全量指标 + 预计算 lag/rolling 列
+│   ├── daily_refresh.sh     一键串联数据管道（首选入口）
+│   ├── timer.py             调度器（16:00 + 17:00 兜底）
+│   └── cache/               沪深京股票清单 CSV 缓存
+├── docs/
+│   ├── 库表设计.md
+│   ├── REFACTOR_RULES_ONLY.md
+│   └── USER_GUIDE.md        用户使用指南
+├── deploy/                  部署脚本
 ├── docker-compose.yml
-├── .env.example
 └── README.md
 ```
 
@@ -125,57 +130,115 @@ IMMEDIATE_RUN=0 python timer.py
 |---|---|---|---|
 | POST | /api/v1/user/register | 注册 | 公开 |
 | POST | /api/v1/user/login    | 登录 → 返 token | 公开 |
-| GET  | /api/v1/user/favorites       | 自选股 | JWT |
-| POST | /api/v1/user/favorites       | 添加自选 | JWT |
-| DELETE | /api/v1/user/favorites/symbol/:symbol | 按股票代码取消自选 | JWT |
-| POST | /api/v1/user/rules          | 新增选股规则 | JWT |
-| GET  | /api/v1/user/rules          | 列出规则 | JWT |
+| GET  | /api/v1/user/rules          | 自定义规则列表 | JWT |
+| POST | /api/v1/user/rules          | 新增规则 | JWT |
 | PUT  | /api/v1/user/rules/:id      | 修改 | JWT |
 | DELETE | /api/v1/user/rules/:id    | 删除 | JWT |
 | POST | /api/v1/user/rules/preview  | 预览规则（不入库） | JWT |
 | POST | /api/v1/user/rules/:id/run  | 执行规则 → 写入 target_trend_stock | JWT |
-| GET  | /api/v1/stocks/list         | 股票列表（分页） | 公开 |
-| GET  | /api/v1/stocks/search?q=    | 模糊搜索 | 公开 |
-| GET  | /api/v1/stocks/hot          | 热门（涨幅≥5%） | 公开 |
-| GET  | /api/v1/stocks/history?symbol=&days= | 日线+指标+资金流 | 公开 |
-| GET  | /api/v1/target-stocks?rule_name= | 候选股 | 公开 |
+| GET  | /api/v1/presets              | 16 个系统预设 | 公开 |
+| POST | /api/v1/presets/run          | 执行预设，返回命中列表 | 公开 |
+| GET  | /api/v1/stocks/list          | 股票列表（分页） | 公开 |
+| GET  | /api/v1/stocks/search?q=     | 模糊搜索 | 公开 |
+| GET  | /api/v1/stocks/hot           | 热门（涨幅≥5%） | 公开 |
+| GET  | /api/v1/stock-daily-data/:symbol/kline?days=N | 单股 K 线 + MA/MACD/KDJ/RSI | 公开 |
+| GET  | /api/v1/target-stocks?rule_name=&page= | 候选股 | 公开 |
 
 完整 OpenAPI 见 `http://localhost:3003/swagger/index.html`
 
-## 选股规则表达式 (JSONB) 语法
+## 16 个内置预设
+
+| ID | 名称 | 思路 |
+|---|---|---|
+| `consecutive-yang` | 连续阳线 | 连续 N 天收阳 |
+| `consecutive-yin` | 连续阴线 | 连续 N 天收阴 |
+| `main-inflow` | 主力连续流入 | 连续 N 天主力净流入 |
+| `volume-amplify` | 连续放量 | 连续 N 天量比放大 |
+| `volume-shrink` | 连续缩量 | 连续 N 天量比缩小 |
+| `volume-ratio-blast` | 单日放量 | 量比 >= 1.5 |
+| `turnover-active` | 高换手活跃 | 换手 3~15% |
+| `quality-stocks` | 稳健基本面 | PE 0~80 & PB < 10 |
+| `ma-golden-cross` | 均线金叉 | MA5 上穿 MA10 + 站上 MA20 + MA20 上扬 |
+| `ma-death-cross` | 均线死叉 | MA5 下穿 MA20 + 跌破 MA60 |
+| `oversold-bounce` | 超卖反弹 | RSI6<30 + KDJ 金叉 + 站上 MA5 |
+| `ma-converge` | 均线粘合 | MA5/10/20 乖离<2% + 换手 1~15% |
+| `boll-bounce` | BOLL 中轨反弹 | BOLL 下轨 + 站上 MA5 + MACD 柱转正 |
+| `volume-shrink-pullback` | 缩量回踩 MA20 | 量比<=0.8 + 换手<5% |
+| `limit-up-strong` | 强势涨停 | >=9.8% + 站上 MA20 + 量比>=1.5 |
+| `high-position-breakout` | 高位突破 | 60 日高位 80~100% + MA 多头 + 放量 |
+
+所有预设的完整 JSON 见 `backend/presets/presets.go`。
+
+## 规则表达式语法
+
+顶层结构：
 
 ```jsonc
 {
-  // 简单比较
-  "change_percent": {"gt": 5, "lt": 9.8},    // > 5 AND < 9.8
-  "turnover_rate":  {"gte": 3},             // >= 3
-  "current_price":  {"between": [5, 50]},   // BETWEEN 5 AND 50
-
-  // 集合
-  "industry": {"in": ["银行", "证券"]},     // IN (...)
-  "market":   "创业板",                       // =
-  "symbol_prefix": "300",                    // LIKE '300%'
-
-  // 统计（由 CTE 窗口函数实时算）
-  "consecutive_up_days":        {"gte": 3},    // 连续 N 天上涨
-  "consecutive_inflow_days":    {"gte": 3},    // 连续 N 天主力净流入
-  "consecutive_volume_amplify_days": {"gte": 3}, // 连续 N 天放量
-  "volume_amplify_days":        {"gte": 3, "min_ratio": 1.5} // 放量倍数
+  "all":     [ /* AND 关系，全部满足 */ ],
+  "any":     [ /* OR 关系，任一满足 */ ],
+  "exclude": [ /* NOT 关系，全部排除 */ ]
 }
 ```
 
-操作符：`gt` / `gte` / `lt` / `lte` / `eq` / `between` / `in`
+支持的算子（28 个）：
+
+| 算子 | 字段 / 参数 | 说明 |
+|---|---|---|
+| `field` | `name`, `op`, `value` | 简单字段比较 |
+| `field_between` | `name`, `min`, `max` | 区间 |
+| `ma_compare` | `fast`, `slow`, `op` | MA 之间的 > / < |
+| `ma_alignment` | `order[]` | MA 多头/空头排列 |
+| `ma_slope` | `ma`, `days`, `op` | MA 在 N 日内上扬/下倾 |
+| `ma_cross` | `fast`, `slow`, `direction` | 均线金叉/死叉 |
+| `close_vs_ma` | `ma`, `op` | 收盘价相对某 MA |
+| `volume_ratio` | `min`, `max` | 量比 (latest.volume / vol_avg5) |
+| `volume_increasing` | `days`, `min_ratio` | 连续放量 |
+| `turnover_rate_range` | `min`, `max` | 换手率区间 |
+| `change_percent_range` | `min`, `max` | 涨跌幅区间 |
+| `amount_range` | `min`, `max` | 成交额区间 |
+| `yang_streak` / `yin_streak` | `days` | 连续阳/阴线 |
+| `cumulative_change` | `days`, `max_pct` | N 日累计涨跌幅 |
+| `breakout_high` | `lookback` | 突破 N 日新高 |
+| `low_breakout` | `lookback` | 跌破 N 日新低 |
+| `close_position` | `lookback`, `min`, `max` | 收盘在 N 日区间位置 |
+| `macd_cross` | `location` | MACD 金叉/死叉 |
+| `macd_histogram` | `sign`, `growing` | MACD 柱符号 + 放大 |
+| `kdj_cross` | `location` | KDJ 金叉/死叉 |
+| `rsi_range` | `min`, `max` | RSI 区间 |
+| `boll_position` | `position` | BOLL 上/中/下轨附近 |
+| `boll_pct_b` | `min`, `max` | %b 位置 |
+| `boll_width` | `min`, `max` | 通道宽度 |
+| `bias` | `ma`, `min`, `max` | 乖离率 |
+| `limit_up` / `limit_down` | `min_pct` / `max_pct` | 涨停 / 跌停 |
+| `board_in` | `boards[]` | 板型筛选（主板/创业板/科创板/北交所） |
+| `industry_in` / `industry_not_in` | `industries[]` | 行业 IN / NOT IN |
+| `is_st` / `is_not_st` | — | 排除 ST |
+| `list_age_days_gte` / `_lt` | `days` | 上市天数 |
+| `market_cap_yi` | `min`, `max` | 总市值（亿元） |
+| `window_field` | `name`, `op`, `value`, `lookback` | N 日窗口内的字段比较 |
+
+## 用户文档
+
+- [USER_GUIDE.md](docs/USER_GUIDE.md) —— 使用指南（基于实际页面截图式描述）
+- [REFACTOR_RULES_ONLY.md](docs/REFACTOR_RULES_ONLY.md) —— 规则 + 选股结果重构设计
+- [库表设计.md](docs/库表设计.md) —— 数据库表结构
 
 ## 路线图
 
-- [x] 全量 DDL（10 张表 + 物化视图）
+- [x] 全量 DDL（10 张表 + 物化视图 + 25+ 预计算指标列）
 - [x] Go HTTP API + Swagger
 - [x] HMAC 自实现 JWT
-- [x] 选股规则执行（JSONB → CTE → target_trend_stock）
-- [x] 技术指标自动计算
+- [x] 16 条系统预设
+- [x] 28+ 算子的规则引擎
+- [x] 技术指标自动计算（含 lag/rolling 预计算）
 - [x] 物化视图自动刷新
 - [x] Docker 一键启动
-- [x] 前后端全打通（K 线 + 自选 + 规则 + 候选）
-- [ ] 单元测试
+- [x] 前后端打通（K 线 + 自定义规则 + 预设 + 候选 + 技术指标可视化）
+- [x] 自定义规则可视化编辑器
+- [x] 单股 K 线图（蜡烛 + MA + 成交量 + MACD 三联图）
+- [x] 一键日刷脚本 `daily_refresh.sh`
+- [ ] 单元测试覆盖 controllers 层
 - [ ] 实时推送（WebSocket）
-- [ ] 回测
+- [ ] 规则回测
+- [ ] 复权处理
