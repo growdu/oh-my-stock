@@ -97,55 +97,39 @@
             <span class="ind-label">行业</span>{{ s.industry }}
           </div>
 
-          <!-- 主体：左侧价格区 + 右侧指标网格 -->
-          <div class="card-body">
-            <div class="price-section" :class="stockClass(s)">
-              <div class="price">{{ fmt(s.close) }}</div>
-              <div class="pct-row" :class="stockClass(s)">
-                <span class="arrow">{{ pctArrow(s) }}</span>
-                <span class="pct">
-                  {{ (s.change_percent ?? 0) >= 0 ? '+' : '' }}{{ fmt(s.change_percent) }}%
-                </span>
-              </div>
-              <div class="amt" :class="stockClass(s)">{{ fmtChangeAmt(s) }}</div>
-            </div>
-
-            <div class="metrics-grid">
-              <div class="metric"><span>开盘</span><b>{{ fmt(s.open) }}</b></div>
-              <div class="metric"><span>最高</span><b>{{ fmt(s.high) }}</b></div>
-              <div class="metric"><span>最低</span><b>{{ fmt(s.low) }}</b></div>
-              <div class="metric"><span>振幅</span><b>{{ fmt(amplitude(s)) }}%</b></div>
-              <div class="metric"><span>换手</span><b>{{ fmt(s.turnover_rate) }}%</b></div>
-              <div class="metric"><span>PE</span><b>{{ fmt(s.pe_ttm) }}</b></div>
-              <div class="metric"><span>PB</span><b>{{ fmt(s.pb) }}</b></div>
-              <div class="metric"><span>净流入(万)</span><b :class="stockClass(s)">{{ fmtW(s.net_amount) }}</b></div>
-              <div class="metric"><span>成交量</span><b>{{ fmtVol(s.volume) }}</b></div>
-              <div class="metric"><span>MACD柱</span><b :class="macdBarClass(s)">{{ fmt(macdBar(s)) }}</b></div>
-            </div>
+          <!-- 价格 -->
+          <div class="price-block" :class="stockClass(s)">
+            <span class="price">{{ fmt(s.close) }}</span>
+            <span class="pct">{{ pctArrow(s) }} {{ (s.change_percent ?? 0) >= 0 ? '+' : '' }}{{ fmt(s.change_percent) }}%</span>
           </div>
 
-          <!-- 技术指标快照：MA / KDJ / RSI / BOLL 关键值，金叉死叉高亮 -->
-          <div class="tech-strip">
-              <span class="ts-chip" :class="maPosClass(s, 'ma5')" :title="'MA5 昨值 ' + fmt(s.ma5_prev)">
-                MA5 {{ fmt(s.ma5) }}
+          <!-- 核心 4 项：净利润 / 营收增长 / 成交量 / MA5（含金叉死叉标）-->
+          <div class="core-grid">
+            <div class="core-cell">
+              <span class="core-label">净利润</span>
+              <b class="core-value" :class="s.net_profit_yoy != null ? yoyClass(s.net_profit_yoy) : ''">
+                {{ fmtYi(s.net_profit) }}
+                <small v-if="s.net_profit_yoy != null" class="core-sub">同比 {{ fmtPctSigned(s.net_profit_yoy) }}</small>
+              </b>
+            </div>
+            <div class="core-cell">
+              <span class="core-label">营收增长</span>
+              <b class="core-value" :class="yoyClass(s.revenue_yoy)">{{ fmtPctSigned(s.revenue_yoy) }}</b>
+            </div>
+            <div class="core-cell">
+              <span class="core-label">成交量</span>
+              <b class="core-value">{{ fmtVol(s.volume) }}</b>
+            </div>
+            <div class="core-cell">
+              <span class="core-label">MA5</span>
+              <b class="core-value" :class="maPosClass(s, 'ma5')">
+                {{ fmt(s.ma5) }}
                 <em v-if="maCross(s, 'ma5', 'ma10')" class="ts-flag gold">金叉</em>
                 <em v-else-if="maDeathCross(s, 'ma5', 'ma10')" class="ts-flag death">死叉</em>
-              </span>
-              <span class="ts-chip" :class="maPosClass(s, 'ma10')">MA10 {{ fmt(s.ma10) }}</span>
-              <span class="ts-chip" :class="maPosClass(s, 'ma20')">MA20 {{ fmt(s.ma20) }}</span>
-              <span class="ts-chip" :class="maPosClass(s, 'ma60')">MA60 {{ fmt(s.ma60) }}</span>
-              <span class="ts-chip" :class="kdjClass(s)" :title="'K ' + fmt(s.k) + ' / D ' + fmt(s.d)">
-                KDJ {{ fmt(s.k) }}/{{ fmt(s.d) }}
-                <em v-if="kdjCross(s)" class="ts-flag gold">金叉</em>
-              </span>
-              <span class="ts-chip" :class="rsiClass(s)">RSI6 {{ fmt(s.rsi6) }}</span>
-              <span class="ts-chip" :class="bollClass(s)" :title="'上轨 ' + fmt(s.boll_upper) + ' / 中轨 ' + fmt(s.boll_mid) + ' / 下轨 ' + fmt(s.boll_lower)">
-                BOLL {{ fmt(bollPctB(s) * 100) }}%
-              </span>
+              </b>
             </div>
           </div>
-        </div>
-      </div>
+        </div>      </div>
 
       <KLineDialog v-model="klineOpen" :stock="klineStock" />
 
@@ -160,6 +144,7 @@
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script setup>
@@ -224,6 +209,22 @@ const fmtVol = (v) => {
   if (v >= 1e8) return (v/1e8).toFixed(2) + '亿'
   if (v >= 1e4) return (v/1e4).toFixed(0) + '万'
   return String(v)
+}
+// 净利润：元 → 亿元，保留 2 位小数；亏损为负值加 - 前缀
+const fmtYi = (v) => {
+  if (v == null) return '-'
+  const yi = Number(v) / 1e8
+  return yi.toFixed(2) + '亿'
+}
+// 百分比带正负号（+5.3% / -2.1%）；0 也带 + 号保持一致
+const fmtPctSigned = (v) => {
+  if (v == null) return '-'
+  const n = Number(v)
+  return (n >= 0 ? '+' : '') + n.toFixed(1) + '%'
+}
+const yoyClass = (v) => {
+  if (v == null) return ''
+  return Number(v) >= 0 ? 'up' : 'down'
 }
 
 // === 技术指标工具函数 ===
@@ -840,88 +841,72 @@ onMounted(async () => {
 }
 .card-industry .ind-label { color: #9ca3af; margin-right: 6px; font-weight: 500; }
 
-.card-body {
-  flex: 1;
-  display: flex;
-  gap: 12px;
-  align-items: stretch;
+.price-block {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 4px 0 6px;
+  border-bottom: 1px dashed #f3f4f6;
+  margin-bottom: 8px;
 }
-
-.price-section {
-  flex: 0 0 auto;
-  width: 110px;
-  padding-right: 10px;
-  border-right: 1px dashed #e5e7eb;
-  display: flex; flex-direction: column; justify-content: center;
-  gap: 2px;
-}
-.price-section .price {
-  font-size: 30px;
-  font-weight: 900;
-  letter-spacing: -0.8px;
+.price-block.up   .price { color: #e63946; }
+.price-block.down .price { color: #16a34a; }
+.price-block .price {
+  font-size: 26px; font-weight: 900;
+  letter-spacing: -0.5px;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
-  line-height: 1.15;
+  line-height: 1.1;
 }
-.price-section.up   .price { color: #e63946; }
-.price-section.down .price { color: #16a34a; }
-
-.pct-row {
-  display: flex; align-items: center; gap: 4px;
-  margin-top: 6px;
-  font-weight: 800;
-}
-.pct-row.up   { color: #e63946; }
-.pct-row.down { color: #16a34a; }
-.pct-row .arrow { font-size: 14px; }
-.pct-row .pct {
-  font-size: 17px;
+.price-block .pct {
+  font-size: 14px; font-weight: 800;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
+.price-block.up   .pct { color: #e63946; }
+.price-block.down .pct { color: #16a34a; }
+.price-block.flat .pct { color: #6b7280; }
 
-.amt {
-  font-size: 13px; font-weight: 700;
-  font-family: 'SF Mono', Menlo, Consolas, monospace;
-  margin-top: 4px;
-}
-.amt.up   { color: #e63946; }
-.amt.down { color: #16a34a; }
-
-.metrics-grid {
-  flex: 1;
+/* 2x2 核心数据网格：净利润 / 营收增长 / 成交量 / MA5 */
+.core-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px 12px;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+  flex: 1;
   align-content: center;
-  padding-left: 6px;
 }
-.metric {
+.core-cell {
   display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
-  gap: 2px;
-  font-size: 12px;
-  line-height: 1.3;
-  min-width: 0;
-  padding: 4px 6px;
+  gap: 1px;
   background: #fafbfc;
   border-radius: 6px;
+  padding: 6px 8px;
+  min-width: 0;
 }
-.metric span {
+.core-cell .core-label {
   color: #9ca3af;
   font-weight: 500;
   font-size: 11px;
+  letter-spacing: 0.2px;
 }
-.metric b {
+.core-cell .core-value {
   color: #111;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 15px;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  line-height: 1.25;
 }
-.metric b.up   { color: #e63946; }
-.metric b.down { color: #16a34a; }
-.metric b.placeholder { color: #cbd5e1; font-weight: 400; }
+.core-cell .core-value.up   { color: #e63946; }
+.core-cell .core-value.down { color: #16a34a; }
+.core-cell .core-sub {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  color: #9ca3af;
+  margin-top: 1px;
+  font-family: inherit;
+  letter-spacing: 0;
+}
 
 /* ========= 移动端适配 (≤760px) ========= */
 @media (max-width: 760px) {
