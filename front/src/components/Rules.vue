@@ -90,6 +90,18 @@
               <div class="kv"><span>净流入(万)</span><b>{{ fmtW(s.net_inflow ?? s.net_amount) }}</b></div>
               <div class="kv"><span>PE</span><b>{{ fmt(s.pe_ttm) }}</b></div>
             </div>
+            <div class="card-row4 layer-4 tech-strip">
+              <span class="ts-chip" :class="maPosClass(s, 'ma5')">
+                MA5 {{ fmt(s.ma5) }}
+                <em v-if="maCross(s, 'ma5', 'ma10')" class="ts-flag gold">金叉</em>
+                <em v-else-if="maDeathCross(s, 'ma5', 'ma10')" class="ts-flag death">死叉</em>
+              </span>
+              <span class="ts-chip" :class="maPosClass(s, 'ma10')">MA10 {{ fmt(s.ma10) }}</span>
+              <span class="ts-chip" :class="maPosClass(s, 'ma20')">MA20 {{ fmt(s.ma20) }}</span>
+              <span class="ts-chip" :class="kdjClass(s)">KDJ {{ fmt(s.k) }}/{{ fmt(s.d) }}</span>
+              <span class="ts-chip" :class="rsiClass(s)">RSI6 {{ fmt(s.rsi6) }}</span>
+              <span class="ts-chip" :class="bollClass(s)">BOLL {{ fmt(bollPctB(s) * 100) }}%</span>
+            </div>
           </div>
         </el-col>
       </el-row>
@@ -212,6 +224,52 @@ const runRuleNow = async (row) => {
 }
 
 const deleteRuleItem = async (id) => { await deleteRule(id); await getRules_() }
+
+// === 技术指标辅助函数（与 Display.vue 保持一致） ===
+const hasValue = (v) => v != null && Math.abs(v) > 1e-9
+const maPosClass = (s, key) => {
+  const ma = s[key]
+  if (!hasValue(ma) || s.current_price == null) return ''
+  return s.current_price >= ma ? 'up' : 'down'
+}
+const maCross = (s, fastKey, slowKey) => {
+  const f = s[fastKey], fp = s[fastKey + '_prev']
+  const sl = s[slowKey], slp = s[slowKey + '_prev']
+  if (!hasValue(f) || !hasValue(fp) || !hasValue(sl) || !hasValue(slp)) return false
+  return fp <= slp && f > sl
+}
+const maDeathCross = (s, fastKey, slowKey) => {
+  const f = s[fastKey], fp = s[fastKey + '_prev']
+  const sl = s[slowKey], slp = s[slowKey + '_prev']
+  if (!hasValue(f) || !hasValue(fp) || !hasValue(sl) || !hasValue(slp)) return false
+  return fp >= slp && f < sl
+}
+const kdjClass = (s) => {
+  if (!hasValue(s.k) || !hasValue(s.d)) return ''
+  if (s.k > 80 && s.d > 80) return 'overbought'
+  if (s.k < 20 && s.d < 20) return 'oversold'
+  return s.k >= s.d ? 'up' : 'down'
+}
+const rsiClass = (s) => {
+  const r = s.rsi6
+  if (!hasValue(r)) return ''
+  if (r >= 80) return 'overbought'
+  if (r <= 30) return 'oversold'
+  return ''
+}
+const bollPctB = (s) => {
+  if (!hasValue(s.boll_upper) || !hasValue(s.boll_lower) || s.current_price == null) return null
+  const range = s.boll_upper - s.boll_lower
+  if (range <= 0) return null
+  return Math.max(0, Math.min(1, (s.current_price - s.boll_lower) / range))
+}
+const bollClass = (s) => {
+  const p = bollPctB(s)
+  if (p == null) return ''
+  if (p >= 1) return 'overbought'
+  if (p <= 0) return 'oversold'
+  return p >= 0.5 ? 'up' : 'down'
+}
 
 onMounted(getRules_)
 </script>
@@ -357,4 +415,45 @@ onMounted(getRules_)
   display: flex; flex-direction: column; align-items: flex-start;
 }
 .card-row3 .kv b { color: #303133; font-weight: 600; margin-top: 2px; }
+
+/* ============ 技术状态条 ============ */
+.card-row4 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 5px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed #ebeef5;
+  transform: translateZ(4px);
+}
+.tech-strip { /* 共用 class，做空样式占位，避免 scoped 冲突 */ }
+.ts-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+.ts-chip.up          { color: #c0392b; background: #fff5f5; border-color: #ffd0d0; }
+.ts-chip.down        { color: #27ae60; background: #f6fbf6; border-color: #bbf7d0; }
+.ts-chip.overbought  { color: #c2410c; background: #fff7ed; border-color: #fdba74; }
+.ts-chip.oversold    { color: #0369a1; background: #f0f9ff; border-color: #bae6fd; }
+.ts-flag {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 0 3px;
+  border-radius: 2px;
+  margin-left: 2px;
+}
+.ts-flag.gold  { color: #fff; background: #c0392b; }
+.ts-flag.death { color: #fff; background: #27ae60; }
 </style>
