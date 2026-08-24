@@ -35,6 +35,27 @@ def to_num(v):
     try: return float(v)
     except: return None
 
+def probe_endpoint() -> bool:
+    """先拿一只测试股票试一次；不能则本机出口对该接口被掐，本步直接跳过。"""
+    sym = "600000"
+    for _ in range(2):
+        try:
+            r = requests.get(URL, params={
+                "type": "RPT_F10_FINANCE_MAINFINADATA",
+                "sty": "ALL",
+                "filter": f"(SECUCODE=\"" + sym + ".SH\")",
+                "p": "1", "ps": "6",
+                "st": "REPORT_DATE", "sr": "-1",
+                "source": "HSF10", "client": "PC",
+            }, headers=HEADERS, timeout=8)
+            d = r.json()
+            if d.get("success") and (d.get("result", {}).get("data") or []):
+                return True
+        except Exception:
+            pass
+        time.sleep(0.5)
+    return False
+
 def secid_of(sym: str) -> tuple[str, str]:
     """返回 (code, market) → ('600519', 'SH')"""
     if sym.startswith(("60", "68", "90", "11", "13", "5")):
@@ -103,6 +124,10 @@ UPSERT_SQL = text("""
 CHUNK = 200  # 每 200 只一个 chunk，立即入库
 
 def main():
+    if not probe_endpoint():
+        print("⚠️  财报接口 datacenter.eastmoney.com 在本机不可达，本步骤跳过。", flush=True)
+        print("    K 线 / 指标 / MV 不受影响；如需恢复，排查出口 IP / 反代 / VPN。", flush=True)
+        return
     eng = create_engine(DB)
     with eng.begin() as conn:
         syms = pd.read_sql("SELECT symbol FROM stock_basic_info", conn)["symbol"].tolist()
