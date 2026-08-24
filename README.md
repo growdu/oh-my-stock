@@ -76,9 +76,7 @@ sudo systemctl list-timers oh-my-stock-*   # 看下一次触发
 ```
 
 > **数据源提示**：当前实现默认走 Tencent `web.ifzq.gtimg.cn` (主) + Eastmoney 备用 + Sina 兜底，Sina 在部分 IP 被限频时可由 `SOURCES` 常量调整优先级。
-> **网络限制**：`fetch_money_flow.py` 依赖 `push2his.eastmoney.com`，部分出口 IP 会被该接口掐断。脚本会先做一次 ~5 秒探针，命中则跳过整步（约 2 秒退出），不会拖累主流程；K 线 / 指标 / 财报 / 物化视图均不受影响。`main-inflow` 预设可能因数据稀疏返回空结果。
-
-> **网络限制**：`fetch_money_flow.py` 依赖 `push2his.eastmoney.com`，某些出口 IP 会被该接口掐断。脚本会先做一次 5 秒探针，命中则跳过整步（~2 秒退出），不会拖累主流程；K 线 / 指标 / 财报 / 物化视图均不受影响。`main-inflow` 预设可能因数据稀疏返回空结果。
+> **网络限制**：`fetch_money_flow.py` 依赖 `push2his.eastmoney.com`，部分出口 IP 会被该接口掐断。脚本会先做一次 5 秒探针，命中则跳过整步（~2 秒退出），不阻塞 K 线 / 指标 / MV；`main-inflow` 预设可能因数据稀疏返回空结果。
 
 `daily_refresh.sh` 内部依次执行：
 1. `get_basic_info_lite.py` —— 仅 `--initial` 时跑，拉沪深京全量代码+名称
@@ -122,12 +120,12 @@ sudo systemctl list-timers oh-my-stock-*   # 看下一次触发
 │   ├── timer.py             调度器（保留作为应急，systemd 接管后不依赖）
 ├── deploy/
 │   └── systemd/             systemd .timer / .service (Mon-Fri 17:00 & 18:00)
-│   └── cache/               沪深京股票清单 CSV 缓存
+├── scripts/cache/           沪深京股票清单 CSV 缓存
 ├── docs/
 │   ├── 库表设计.md
 │   ├── REFACTOR_RULES_ONLY.md
 │   └── USER_GUIDE.md        用户使用指南
-├── deploy/                  部署脚本
+├── deploy/                  docker-compose 一键部署脚本
 ├── docker-compose.yml
 └── README.md
 ```
