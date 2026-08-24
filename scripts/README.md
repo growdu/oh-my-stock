@@ -20,33 +20,33 @@ cp config.ini config.local.ini  # 修改 url
 url = postgresql://postgres:yourpass@localhost:5432/oh_my_stock
 ```
 
-## 一次性初始化（按顺序执行）
+## 一键日刷管道（推荐入口）
 
 ```bash
-python get_basic_info.py     # 拉全部 A 股基础信息 → stock_basic_info
-python get_stock_daily.py    # 拉最新 3 个交易日日线 → stock_daily_data
-python get_money_flow_v2.py  # 拉资金流榜单 → stock_money_flow_all
-python get_financial_info.py # 拉财报 → stock_financial_data
-python compute_indicators.py # 计算 MA/MACD/KDJ/RSI/BOLL → stock_indicators
-python refresh_mv.py         # 创建/刷新 stock_history_mv 物化视图
+./daily_refresh.sh               # 默认：拉 K 线 → 资金流 → 财报 → 算指标 → 刷 MV
+./daily_refresh.sh --initial     # 首次部署：再加 basic_info 全量
+./daily_refresh.sh --skip-fetch  # 只算指标 + 刷 MV (K 线已就位时)
+./daily_refresh.sh --skip-compute
+./daily_refresh.sh --skip-mv
 ```
 
-## 定时任务
+## 定时调度
+
+由 systemd .timer 接管（推荐，开机自启）：
 
 ```bash
-python timer.py    # 每天 16:00 起调度全部脚本
-IMMEDIATE_RUN=1 python timer.py  # 调试时：先立即跑一次再调度
+bash deploy/systemd/install.sh   # 一键装上 two timers
+sudo systemctl list-timers oh-my-stock-*
 ```
 
-调度时刻：
+调度时刻 (Mon-Fri)：
 
-| 时刻 | 脚本 |
+| 时刻 | 服务 / 脚本 |
 |---|---|
-| 16:00 | get_stock_daily |
-| 16:05 | get_money_flow_v2 |
-| 16:30 | get_financial_info |
-| 17:00 | compute_indicators |
-| 17:05 | refresh_mv |
+| 17:00 | `oh-my-stock-daily-refresh.service`  → `daily_refresh.sh` (拉+算+刷 MV 全套) |
+| 18:00 | `oh-my-stock-mv-fallback.service`    → `refresh_mv.py` (兜底) |
+
+`timer.py` 仅作为应急备选（`IMMEDIATE_RUN=1 python timer.py` 可立即跑一遍）。
 
 ## 物化视图
 

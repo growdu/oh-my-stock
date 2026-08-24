@@ -1,0 +1,17 @@
+[Unit]
+Description=oh-my-stock MV fallback refresh (daily 18:00 catch-up)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/oh-my-stock
+Environment="PYTHONIOENCODING=utf-8"
+Environment="CONFIG_INI=/home/ubuntu/oh-my-stock/scripts/config.ini"
+ExecStart=/usr/bin/python3 /home/ubuntu/oh-my-stock/scripts/refresh_mv.py
+StandardOutput=append:/home/ubuntu/oh-my-stock/logs/mv_fallback_systemd.log
+StandardError=append:/home/ubuntu/oh-my-stock/logs/mv_fallback_systemd.log
+
+[Install]
+WantedBy=multi-user.target

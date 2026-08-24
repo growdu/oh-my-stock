@@ -70,9 +70,15 @@ pip install -r requirements.txt
 # 一键全量初始化（首次部署）
 ./daily_refresh.sh --initial
 
-# 每天定时调度（16:00 起自动跑）
-IMMEDIATE_RUN=0 python timer.py
+# 每天定时调度（17:00 由 systemd 接管；machine restart 自动续上）
+bash deploy/systemd/install.sh   # 一键装两个 .timer
+sudo systemctl list-timers oh-my-stock-*   # 看下一次触发
 ```
+
+> **数据源提示**：当前实现默认走 Tencent `web.ifzq.gtimg.cn` (主) + Eastmoney 备用 + Sina 兜底，Sina 在部分 IP 被限频时可由 `SOURCES` 常量调整优先级。
+> **网络限制**：`fetch_money_flow.py` 依赖 `push2his.eastmoney.com`，部分出口 IP 会被该接口掐断。脚本会先做一次 ~5 秒探针，命中则跳过整步（约 2 秒退出），不会拖累主流程；K 线 / 指标 / 财报 / 物化视图均不受影响。`main-inflow` 预设可能因数据稀疏返回空结果。
+
+> **网络限制**：`fetch_money_flow.py` 依赖 `push2his.eastmoney.com`，某些出口 IP 会被该接口掐断。脚本会先做一次 5 秒探针，命中则跳过整步（~2 秒退出），不会拖累主流程；K 线 / 指标 / 财报 / 物化视图均不受影响。`main-inflow` 预设可能因数据稀疏返回空结果。
 
 `daily_refresh.sh` 内部依次执行：
 1. `get_basic_info_lite.py` —— 仅 `--initial` 时跑，拉沪深京全量代码+名称
@@ -113,7 +119,9 @@ IMMEDIATE_RUN=0 python timer.py
 │   ├── fetch_quote.py       实时行情 fetcher
 │   ├── compute_indicators.py  v5：单股全量指标 + 预计算 lag/rolling 列
 │   ├── daily_refresh.sh     一键串联数据管道（首选入口）
-│   ├── timer.py             调度器（16:00 + 17:00 兜底）
+│   ├── timer.py             调度器（保留作为应急，systemd 接管后不依赖）
+├── deploy/
+│   └── systemd/             systemd .timer / .service (Mon-Fri 17:00 & 18:00)
 │   └── cache/               沪深京股票清单 CSV 缓存
 ├── docs/
 │   ├── 库表设计.md

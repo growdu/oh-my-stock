@@ -216,7 +216,7 @@ oh-my-stock 是一个**用规则筛股票**的个人系统。
 
 ## 4. 数据什么时候刷新
 
-- 默认每天 16:00 由 `timer.py` 触发 `daily_refresh.sh`，17:00 单独跑一次 `refresh_mv.py` 兜底
+- 默认每天 17:00 / 18:00 由 **systemd timers** 触发 (`oh-my-stock-daily-refresh.timer` + `oh-my-stock-mv-fallback.timer`，详见 DEPLOY.md)，机器重启或错过都会自动补跑 (`Persistent=true`)
 - 拉取完成后，下次访问 `/` 就能看到新一天的数据
 - 想立刻刷新：在服务器上跑 `./scripts/daily_refresh.sh`（不带参数跳过 basic_info）
 
@@ -253,6 +253,6 @@ cd front && npm run dev
 # 4) 首次初始化数据（含基础信息）
 cd scripts && ./daily_refresh.sh --initial
 
-# 5) 之后每天会自动跑（如果启动了 timer.py）
-IMMEDIATE_RUN=0 python timer.py
+# 5) 装上 systemd 调度后由系统接管，无需手动 timer
+bash deploy/systemd/install.sh
 ```

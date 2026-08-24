@@ -1,0 +1,11 @@
+[Unit]
+Description=Run oh-my-stock MV fallback at 18:00 (Mon-Fri)
+
+[Timer]
+OnCalendar=Mon..Fri 18:00:00
+Persistent=true
+AccuracySec=30
+Unit=oh-my-stock-mv-fallback.service
+
+[Install]
+WantedBy=timers.target

@@ -1,9 +1,9 @@
 """
 timer.py
 ========
-定时调度（v2）：
-  - 16:00  daily_refresh.sh     (拉 K 线 → 资金流 → 算指标 → 刷 MV)
-  - 17:00  refresh_mv.py        (兜底再刷一次，防止 daily 流程异常时数据不一致)
+定时调度：
+  - 17:00  daily_refresh.sh     (拉 K 线 → 资金流 → 算指标 → 刷 MV)
+  - 18:00  refresh_mv.py        (兜底再刷一次，防止 17:00 流程异常时数据不一致)
 
 daily_refresh.sh 内部串联：
   fetch_daily → fetch_money_flow → compute_indicators → refresh_mv
@@ -27,8 +27,8 @@ IMMEDIATE_RUN = int(os.environ.get("IMMEDIATE_RUN", "0"))
 
 # (启动命令, 每日执行时刻, 显示名)
 SCHEDULE = [
-    (["bash", str(SCRIPT_DIR / "daily_refresh.sh")],            "16:00", "daily_refresh"),
-    ([sys.executable, str(SCRIPT_DIR / "refresh_mv.py")],        "17:00", "refresh_mv_fallback"),
+    (["bash", str(SCRIPT_DIR / "daily_refresh.sh")],            "17:00", "daily_refresh"),
+    ([sys.executable, str(SCRIPT_DIR / "refresh_mv.py")],        "18:00", "refresh_mv_fallback"),
 ]
 
 
@@ -71,8 +71,6 @@ def log(msg: str):
 
 
 def run(cmd):
-    if isinstance(cmd, list) and cmd[0] == "bash":
-        cmd = ["bash", str(SCRIPT_DIR / cmd[1].name)] if len(cmd) == 2 else cmd
     resolved = resolve_cmd(cmd)
     script_name = Path(resolved[-1]).stem
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -92,7 +90,11 @@ def run(cmd):
 
 
 def job(cmd, when):
-    run(cmd)
+    """schedule 回调：吞异常 + 记录，避免拖死调度主循环"""
+    try:
+        run(cmd)
+    except Exception as e:
+        log(f"❌ 任务失败 [{when}] {type(e).__name__}: {e}")
 
 
 def main():

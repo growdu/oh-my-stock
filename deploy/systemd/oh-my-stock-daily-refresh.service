@@ -1,0 +1,18 @@
+[Unit]
+Description=oh-my-stock daily K-line / indicators / MV refresh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/oh-my-stock
+Environment="PYTHONIOENCODING=utf-8"
+Environment="CONFIG_INI=/home/ubuntu/oh-my-stock/scripts/config.ini"
+ExecStart=/usr/bin/env bash /home/ubuntu/oh-my-stock/scripts/daily_refresh.sh
+StandardOutput=append:/home/ubuntu/oh-my-stock/logs/daily_refresh_systemd.log
+StandardError=append:/home/ubuntu/oh-my-stock/logs/daily_refresh_systemd.log
+TimeoutStartSec=5400
+
+[Install]
+WantedBy=multi-user.target

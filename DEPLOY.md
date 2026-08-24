@@ -54,13 +54,15 @@ pip install -r requirements.txt
 python get_basic_info.py     # 拉 A 股基础信息
 python get_stock_daily.py    # 拉日线
 python get_money_flow_v2.py  # 拉资金流
-python get_financial_info.py # 拉财报
 python compute_indicators.py # 计算指标
 python refresh_mv.py         # 刷新物化视图
 
-# 启动定时调度（16:00 起每日）
-python timer.py
+# —— 定时调度由 systemd 接管 ——
+# (Mon-Fri 17:00 全量刷；18:00 单刷 MV 兜底)
+bash deploy/systemd/install.sh
 ```
+
+详见 [§ systemd 定时调度](#systemd-定时调度)。
 
 ## 验证
 
@@ -78,6 +80,38 @@ curl -X POST http://localhost:3003/api/v1/user/login \
   -d '{"username":"demo","password":"demo1234"}'
 # → 拿到 token，后续 user/* 接口加 Authorization: Bearer <token>
 ```
+
+
+## systemd 定时调度
+
+把 17:00 主刷 + 18:00 MV 兜底交给 systemd（开机自启，错过自动补）：
+
+```bash
+bash deploy/systemd/install.sh
+```
+
+实际做了什么：
+
+1. `cp deploy/systemd/oh-my-stock-*.{service,timer} /etc/systemd/system/`
+2. `systemctl daemon-reload`
+3. `enable --now oh-my-stock-daily-refresh.timer` 和 `oh-my-stock-mv-fallback.timer`
+
+日常使用：
+
+```bash
+sudo systemctl list-timers oh-my-stock-*            # 下次触发时刻
+sudo systemctl start oh-my-stock-daily-refresh.service  # 立刻手动跑一次
+sudo journalctl -u oh-my-stock-daily-refresh.service -e  # 看运行日志
+tail -f logs/daily_refresh_systemd.log                   # 或 stdout 文件
+```
+
+替换以前的 `nohup python3 scripts/timer.py &`，后者在 shell 退出 / 机器重启后会丢，留下的定时进程会一直 crash-and-restart 不可靠。
+
+时间设计：
+
+- **17:00** 是 A 股 15:00 收盘后的「数据源稳定窗口」（Sina / Eastmoney 通常 17:00 前把当日 K 线 + 资金流最终化入库）
+- **18:00** 是兜底再刷一次 MV，免得 17:00 整条管道哪一步异常时前端看到陈旧数据
+- `Mon..Fri`——周末 / 节假日 A 股不开市，触发也只是空跑
 
 ## 容器自启策略
 
