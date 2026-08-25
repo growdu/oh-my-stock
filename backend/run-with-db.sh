@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+cd /home/ubuntu/oh-my-stock/backend
+export DB_HOST=127.0.0.1
+export DB_PORT=5432
+export DB_USER=postgres
+export DB_PASS='please_change_me_in_prod'
+export DB_NAME=oh_my_stock
+export JWT_SECRET=oh-my-stock-dev-secret
+export SERVER_HOST=0.0.0.0
+export SERVER_PORT=3003
+exec ./bin/oh-my-stock
