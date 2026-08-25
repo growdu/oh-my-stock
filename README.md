@@ -154,24 +154,25 @@ sudo systemctl list-timers oh-my-stock-*   # 看下一次触发
 
 ## 14 个内置预设
 
-| ID | 名称 | 思路 |
+_（以下与 `backend/presets/presets.go` 中 `All` 数组一一对应；命中条件做了简写，完整 JSON 见下方文件）_
+
+
+| ID | 名称 | 命中条件摘要 |
 |---|---|---|
-| `consecutive-yang` | 连续阳线 | 连续 N 天收阳 |
-| `consecutive-yin` | 连续阴线 | 连续 N 天收阴 |
-| `main-inflow` | 主力连续流入 | 连续 N 天主力净流入 |
-| `volume-amplify` | 连续放量 | 连续 N 天量比放大 |
-| `volume-shrink` | 连续缩量 | 连续 N 天量比缩小 |
-| `volume-ratio-blast` | 单日放量 | 量比 >= 1.5 |
-| `turnover-active` | 高换手活跃 | 换手 3~15% |
-| `quality-stocks` | 稳健基本面 | PE 0~80 & PB < 10 |
-| `ma-golden-cross` | 均线金叉 | MA5 上穿 MA10 + 站上 MA20 + MA20 上扬 |
-| `ma-death-cross` | 均线死叉 | MA5 下穿 MA20 + 跌破 MA60 |
-| `oversold-bounce` | 超卖反弹 | RSI6<30 + KDJ 金叉 + 站上 MA5 |
-| `ma-converge` | 均线粘合 | MA5/10/20 乖离<2% + 换手 1~15% |
-| `boll-bounce` | BOLL 中轨反弹 | BOLL 下轨 + 站上 MA5 + MACD 柱转正 |
-| `volume-shrink-pullback` | 缩量回踩 MA20 | 量比<=0.8 + 换手<5% |
-| `limit-up-strong` | 强势涨停 | >=9.8% + 站上 MA20 + 量比>=1.5 |
-| `high-position-breakout` | 高位突破 | 60 日高位 80~100% + MA 多头 + 放量 |
+| `bottom-reversal` | 底部反转 | 近 2 日资金净流入、连阳 · 站上 MA5 · KDJ 金叉。 |
+| `breakout-5d` | 突破近 5 日高点 | 收盘突破近 5 日最高且放量。 |
+| `ma-trend` | MA5>MA10 多头 | MA5 高于 MA10 · 且 MA5 较 2 日前抬高。 |
+| `volume-price` | 量价齐升 | 量比 ≥1.2 · 站上 MA5 且 MA5 向上。 |
+| `tech-bounce` | 技术反弹 | KDJ 金叉 + RSI6 在 30-60 + 站上 MA5。 |
+| `quality-stocks` | 稳健基本面 | PE-TTM 0~80、PB<10 的主板/创业板/科创板 · 要求估值字段非空。 |
+| `ma-golden-cross` | 均线金叉 | MA5 上穿 MA10 · 同时站上 MA20 · 属于典型多头启动信号。 |
+| `ma-death-cross` | 均线死叉 | MA5 下穿 MA20 · 进入空头排列 · 适合风险规避。 |
+| `oversold-bounce` | 超卖反弹 | RSI6<30 触底 + KDJ 金叉 + 站上 MA5 · 典型短线反弹。 |
+| `ma-converge` | 均线粘合 | MA5/10/20 三线粘合（最大与最小乖离<2%） · 等待方向选择。 |
+| `boll-bounce` | BOLL 中轨反弹 | BOLL 下轨附近 + 站上中轨 + MACD 柱转正 · 趋势拐点。 |
+| `volume-shrink-pullback` | 缩量回踩 MA20 | MA5 在 MA20 之上、收盘回踩 MA5 之下、量比<=0.8、换手<5% · 强势洗盘形态。 |
+| `limit-up-strong` | 强势涨停 | 今日涨停（>=9.8%）+ 站上 MA20 + 量比>=1.5。 |
+| `high-position-breakout` | 高位突破 | 收盘在 60 日区间 [80% · 100%] + MA 多头排列 + 量比放大。 |
 
 所有预设的完整 JSON 见 `backend/presets/presets.go`。
 
