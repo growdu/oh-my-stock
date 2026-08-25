@@ -201,30 +201,6 @@ var All = []Preset{
 			"exclude": commonExcludes(),
 		},
 	},
-	{
-		ID: "star-board", Name: "科创板机会",
-		Description: "仅看科创板（688xxx），量比 ≥1.2、站上 MA5。",
-		Expression: map[string]interface{}{
-			"all": []map[string]interface{}{
-				boardFilter([]string{"科创板"}),
-				{"type": "volume_ratio", "min": 1.2},
-				{"type": "close_vs_ma", "ma": "ma5", "op": "gt"},
-			},
-			"exclude": commonExcludes(),
-		},
-	},
-	{
-		ID: "chinext", Name: "创业板机会",
-		Description: "仅看创业板（300/301xxx），KDJ 金叉 + 量比 ≥1.2。",
-		Expression: map[string]interface{}{
-			"all": []map[string]interface{}{
-				boardFilter([]string{"创业板"}),
-				{"type": "kdj_cross", "location": "any"},
-				{"type": "volume_ratio", "min": 1.2},
-			},
-			"exclude": commonExcludes(),
-		},
-	},
 }
 
 func ByID(id string) *Preset {

@@ -3,7 +3,7 @@
 个人股票分析系统。  
 采集 → 入库 → 计算指标 → 刷新物化视图 → 规则筛选 → Web 可视化。
 
-主页一条主线：**用规则筛股票**。16 条内置预设 + 自定义规则，所有命中结果直接展示 MA / KDJ / RSI / BOLL 等技术形态，点击可看 K 线。
+主页一条主线：**用规则筛股票**。14 条内置预设（不含科创板 / 创业板专属筛选）+ 自定义规则，所有命中结果直接展示 MA / KDJ / RSI / BOLL 等技术形态，点击可看 K 线。
 
 ## 技术栈
 
@@ -19,7 +19,7 @@
 
 | 路径 | 用途 | 鉴权 |
 |---|---|---|
-| `/` | 公开展示页：16 个预设单列堆叠 + 命中股票网格（带技术指标 + 行业筛选 + K线弹窗） | 公开 |
+| `/` | 公开展示页：14 个预设单列堆叠 + 命中股票网格（带技术指标 + 行业筛选 + K线弹窗） | 公开 |
 | `/admin/login` | 管理后台登录 | 公开 |
 | `/admin/results` | 管理后台的展示页（与 `/` 视图基本一致） | JWT |
 | `/admin/rules` | 自定义规则管理：可视化编辑 + 立即执行 | JWT |
@@ -95,7 +95,7 @@ sudo systemctl list-timers oh-my-stock-*   # 看下一次触发
 │   ├── config/              配置 + HMAC JWT
 │   ├── controllers/         Gin 控制器层（含 stock_daily_data / rule_runner / presets）
 │   ├── models/              GORM 数据模型（含 target_trend_stock 指标快照）
-│   ├── presets/             规则引擎（evaluator / runner / presets 16 条）
+│   ├── presets/             规则引擎（evaluator / runner / presets 14 条）
 │   ├── middleware/          JWT 中间件
 │   ├── docs/                swag 生成的 OpenAPI
 │   └── main.go
@@ -142,7 +142,7 @@ sudo systemctl list-timers oh-my-stock-*   # 看下一次触发
 | DELETE | /api/v1/user/rules/:id    | 删除 | JWT |
 | POST | /api/v1/user/rules/preview  | 预览规则（不入库） | JWT |
 | POST | /api/v1/user/rules/:id/run  | 执行规则 → 写入 target_trend_stock | JWT |
-| GET  | /api/v1/presets              | 16 个系统预设 | 公开 |
+| GET  | /api/v1/presets              | 14 个系统预设 | 公开 |
 | POST | /api/v1/presets/run          | 执行预设，返回命中列表 | 公开 |
 | GET  | /api/v1/stocks/list          | 股票列表（分页） | 公开 |
 | GET  | /api/v1/stocks/search?q=     | 模糊搜索 | 公开 |
@@ -152,7 +152,7 @@ sudo systemctl list-timers oh-my-stock-*   # 看下一次触发
 
 完整 OpenAPI 见 `http://localhost:3003/swagger/index.html`
 
-## 16 个内置预设
+## 14 个内置预设
 
 | ID | 名称 | 思路 |
 |---|---|---|
@@ -235,7 +235,7 @@ sudo systemctl list-timers oh-my-stock-*   # 看下一次触发
 - [x] 全量 DDL（10 张表 + 物化视图 + 25+ 预计算指标列）
 - [x] Go HTTP API + Swagger
 - [x] HMAC 自实现 JWT
-- [x] 16 条系统预设
+- [x] 14 条系统预设
 - [x] 28+ 算子的规则引擎
 - [x] 技术指标自动计算（含 lag/rolling 预计算）
 - [x] 物化视图自动刷新
