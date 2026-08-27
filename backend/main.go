@@ -67,6 +67,7 @@ func main() {
 	// ============ 股票域（公开）============
 	v1.GET("/presets", controllers.ListPresets)
 	v1.GET("/presets/:id/run", controllers.RunPreset)
+	v1.POST("/screen/final-pick", controllers.FinalPick)
 
 	stock := v1.Group("/stocks")
 	{

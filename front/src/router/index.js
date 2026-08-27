@@ -4,6 +4,7 @@ import LoginPage  from '@/pages/LoginPage.vue'
 import Display    from '@/pages/Display.vue'
 import Results    from '@/pages/Results.vue'
 import Rules      from '@/components/Rules.vue'
+import Picker     from '@/pages/Picker.vue'
 
 const routes = [
   // 公开展示页（无需登录）
@@ -14,6 +15,7 @@ const routes = [
   { path: '/admin/login',  name: 'AdminLogin', component: LoginPage },
   { path: '/admin/results', name: 'AdminResults', component: Results, meta: { requiresAuth: true } },
   { path: '/admin/rules',   name: 'AdminRules',   component: Rules,   meta: { requiresAuth: true } },
+  { path: '/admin/picker',  name: 'AdminPicker',  component: Picker,  meta: { requiresAuth: true } },
 
   // 兜底
   { path: '/:pathMatch(.*)*', redirect: '/' },

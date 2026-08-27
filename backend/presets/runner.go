@@ -48,6 +48,11 @@ type RunResult struct {
 	BollMid   float64 `json:"boll_mid"`
 	BollLower float64 `json:"boll_lower"`
 
+	// 给「精选 TopN」二次评分用的滞后值（前一日 DIF/DEA + 资金流变化率）
+	DIFPrev    float64 `json:"dif_prev"`
+	DEAPrev    float64 `json:"dea_prev"`
+	MfChangePct float64 `json:"mf_change_percent"`
+
 	// 财报快照（最新一期）：净利润 / 净利同比 / 营收同比
 	// 用 *float64 让前端能区分"无数据"与"0"
 	NetProfit     *float64 `json:"net_profit,omitempty"`
@@ -111,6 +116,7 @@ ranked AS (
     i.ma20_lag1, i.ma20_lag2, i.ma20_lag3,
     i.ma60_lag1,
     i.dif_lag1, i.dea_lag1,
+    h.mf_change_percent,
     i.k_lag1, i.d_lag1,
     i.yang_lag0, i.yang_lag1, i.yang_lag2, i.yang_lag3,
     i.close_lag1, i.close_lag2, i.close_lag3, i.close_lag5,
@@ -216,6 +222,7 @@ ranked AS (
     i.ma20_lag1, i.ma20_lag2, i.ma20_lag3,
     i.ma60_lag1,
     i.dif_lag1, i.dea_lag1,
+    h.mf_change_percent,
     i.k_lag1, i.d_lag1,
     i.yang_lag0, i.yang_lag1, i.yang_lag2, i.yang_lag3,
     i.close_lag1, i.close_lag2, i.close_lag3, i.close_lag5,
