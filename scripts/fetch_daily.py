@@ -4,9 +4,11 @@ fetch_daily.py (v2)
 多源 + 指数退避 的 A 股 K 线 fetcher。
 
 数据源（自动按顺序探测）：
-  1. Tencent web.ifzq.gtimg.cn  —— 主，HTTP/2，前复权日 K
-  2. Eastmoney push2his.eastmoney.com  —— 备，全历史后复权日 K
+  1. Tencent web.ifzq.gtimg.cn  —— 主，HTTP/2，前复权日 K（缺 PE/PB/换手率）
+  2. Eastmoney push2his.eastmoney.com  —— 备，全历史后复权日 K（含换手率，无 PE/PB）
   3. Sina money.finance.sina.com.cn  —— 最后兜底（对部分 IP 被墙）
+  + Eastmoney push2.eastmoney.com  —— K 线拉完后补一次 quote 接口
+    （f167=PE-TTM, f173=PB, f108=换手率），把腾讯缺的字段补齐。
 
 每只股票：对每个数据源最多 3 次重试，源之间自动级联。
 启动时做一次网络探测，命中差源立即跳过下游，避免拖死整条管线。
@@ -16,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.dialects.postgresql import insert
 
 # ---------- DB ----------
@@ -208,6 +210,51 @@ def fetch_sina(symbol: str, datalen: int = 300) -> list:
     return rows
 
 
+# ---------- 实时行情（补 PE-TTM / PB / 换手率） ----------
+QUOTE_FIELDS = (
+    "f57,f58,f43,f60,f44,f45,f46,f47,f48,f50,"
+    "f108,f116,f117,f127,f162,f167,f168,f173,f191,f192"
+)
+# f108=换手率(%)，f167=市盈率(TTM)，f168=市盈率(静)，f173=市净率，
+# f116=总市值，f117=流通市值，f127=行业，f43=现价
+URL_QUOTE = "https://push2.eastmoney.com/api/qt/stock/get"
+
+def fetch_quote(symbol: str) -> dict:
+    """拉一次实时行情，返回 {pe_ttm, pb, turnover_rate}，缺字段为 None。
+    不在 K 线流程里：腾讯/东财的日 K 接口不带 PE/PB（PE 是基于实时价的派生指标），
+    而 fetch_eastmoney 的 turnover_rate 也只能补最新一天。统一在 K 线拉完后跑一次。"""
+    secid = f"{em_market(symbol)}.{symbol}"
+    for attempt in range(3):
+        try:
+            r = S_EM.get(URL_QUOTE, params={"secid": secid, "fields": QUOTE_FIELDS}, timeout=6)
+            if r.status_code != 200:
+                backoff_sleep(attempt)
+                continue
+            try:
+                d = (r.json() or {}).get("data") or {}
+            except Exception:
+                backoff_sleep(attempt)
+                continue
+            if not d or not d.get("f57"):
+                return {}
+            def _f(key):
+                v = d.get(key)
+                if v is None or v == "-" or v == "":
+                    return None
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    return None
+            return {
+                "pe_ttm":        _f("f167"),
+                "pb":            _f("f173"),
+                "turnover_rate": _f("f108"),
+            }
+        except requests.RequestException:
+            backoff_sleep(attempt)
+    return {}
+
+
 # 数据源优先级
 SOURCES = [
     ("tencent",   fetch_tencent),
@@ -294,15 +341,19 @@ def main():
         total += len(batch)
         batch = []
 
+    # K 线主阶段：把每只股票的最后一行（即 trade_date 最新的一行）记下来
+    latest_per_sym: dict[str, dict] = {}
     with ThreadPoolExecutor(max_workers=12) as exe:
         futs = {exe.submit(fetch_one, s, 300): s for s in syms}
         for i, fut in enumerate(as_completed(futs), 1):
             sym = futs[fut]
-            src, rows = fut.result()
+            s_name, rows = fut.result()
             if not rows:
                 fail += 1
             else:
-                src_stats[src] = src_stats.get(src, 0) + 1
+                src_stats[s_name] = src_stats.get(s_name, 0) + 1
+                # 记录该股票"最新一天"的 row，后用于补 PE/PB/换手率
+                latest_per_sym[sym] = rows[-1]
                 batch.extend(rows)
                 if len(batch) >= BATCH:
                     _flush()
@@ -310,6 +361,44 @@ def main():
                 logging.info("[%d/%d] wrote=%d fail=%d src=%s",
                              i, len(syms), total, fail, src_stats)
     _flush()
+
+    # ---- 第二阶段：用 eastmoney push2 /qt/stock/get 补 PE-TTM / PB / 换手率 ----
+    if latest_per_sym:
+        latest_date = max(r["trade_date"] for r in latest_per_sym.values())
+        logging.info("[enrich] 补 PE/PB/换手率: %d 只, trade_date=%s",
+                     len(latest_per_sym), latest_date)
+        enrich_ok = 0
+        enrich_fail = 0
+        with ThreadPoolExecutor(max_workers=12) as exe:
+            qfuts = {exe.submit(fetch_quote, s): s for s in latest_per_sym.keys()}
+            for i, fut in enumerate(as_completed(qfuts), 1):
+                sym = qfuts[fut]
+                q = fut.result()
+                if not q:
+                    enrich_fail += 1
+                    continue
+                # 只更新 pe_ttm / pb / turnover_rate 三列，不动已有 K 线
+                with eng.begin() as conn:
+                    conn.execute(
+                        text("UPDATE stock_daily_data "
+                             "SET pe_ttm = COALESCE(:pe, pe_ttm), "
+                             "    pb     = COALESCE(:pb, pb), "
+                             "    turnover_rate = COALESCE(:tr, turnover_rate) "
+                             "WHERE symbol = :sym AND trade_date = :dt"),
+                        {
+                            "pe": q.get("pe_ttm"),
+                            "pb": q.get("pb"),
+                            "tr": q.get("turnover_rate"),
+                            "sym": sym,
+                            "dt": latest_date,
+                        },
+                    )
+                enrich_ok += 1
+                if i % 500 == 0 or i == len(qfuts):
+                    logging.info("[enrich %d/%d] ok=%d fail=%d",
+                                 i, len(qfuts), enrich_ok, enrich_fail)
+        logging.info("[enrich done] ok=%d fail=%d (trade_date=%s)",
+                     enrich_ok, enrich_fail, latest_date)
 
     src_summary = " ".join(f"{k}={v}" for k, v in src_stats.items() if v)
     logging.info("[done] wrote=%d fail=%d | %s", total, fail, src_summary)

@@ -246,23 +246,29 @@ def _flush(eng, rows):
             logging.warning("读 stock_daily_data 失败: %s", e)
             tmap = {}
         params = [{
-            "sym": r["symbol"],
-            "net": r["main_net"],
-            "to":  r["turnover"],
+            "sym":   r["symbol"],
+            "net":   r["main_net"],
+            "to":    r["turnover"],
             "to_amt": tmap.get((r["symbol"], r["trade_date"]), 0),
-            "dt":  r["trade_date"],
+            "dt":    r["trade_date"],
+            # inflow / outflow = 大单 + 超大单 / 中单 + 小单 (eastmoney / akshare 都按此拆分)
+            "in_amt": (r.get("big_net") or 0) + (r.get("super_net") or 0),
+            "out_amt": (r.get("mid_net") or 0) + (r.get("retail_net") or 0),
         } for r in rows]
         # 分批
         BATCH = 500
         for i in range(0, len(params), BATCH):
             sql = text("""
                 INSERT INTO stock_money_flow_all
-                    (time_span, symbol, net_amount, turnover_rate, turnover, trade_date)
-                VALUES (0, :sym, :net, :to, :to_amt, :dt)
+                    (time_span, symbol, net_amount, turnover_rate, turnover,
+                     inflow_amount, outflow_amount, trade_date)
+                VALUES (0, :sym, :net, :to, :to_amt, :dt, :in_amt, :out_amt)
                 ON CONFLICT (symbol, trade_date, time_span) DO UPDATE SET
-                    net_amount=EXCLUDED.net_amount,
-                    turnover_rate=EXCLUDED.turnover_rate,
-                    turnover=EXCLUDED.turnover
+                    net_amount     = EXCLUDED.net_amount,
+                    turnover_rate  = EXCLUDED.turnover_rate,
+                    turnover       = EXCLUDED.turnover,
+                    inflow_amount  = EXCLUDED.inflow_amount,
+                    outflow_amount = EXCLUDED.outflow_amount
             """)
             conn.execute(sql, params[i:i+BATCH])
 
