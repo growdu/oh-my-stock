@@ -200,20 +200,33 @@ def fetch_one(sym: str, lmt: int = 5, use_cache: bool = True) -> tuple:
 
 
 # ---------- 网络探测 ----------
-def probe_sources() -> list:
+def probe_sources(retries: int = 3, retry_wait: float = 5.0) -> list:
+    """网络探测；任一源稳定 reachable 即返回。
+    整体重试 retries 次（默认 3 次，每次间隔 retry_wait 秒），
+    应对 eastmoney 偶发的 'Remote end closed connection' 瞬断。
+    """
     sym = "600000"
-    reachable = []
-    for src_name, fn in SOURCES:
-        try:
-            rows = fn(sym, 5)
-            if rows:
-                logging.info("✓ %s reachable (%d rows)", src_name, len(rows))
-                reachable.append(src_name)
-            else:
-                logging.warning("✗ %s replied empty", src_name)
-        except Exception as e:
-            logging.warning("✗ %s unreachable: %s", src_name, e)
-    return reachable
+    for attempt in range(1, retries + 1):
+        reachable = []
+        for src_name, fn in SOURCES:
+            try:
+                rows = fn(sym, 5)
+                if rows:
+                    logging.info("✓ %s reachable (%d rows)", src_name, len(rows))
+                    reachable.append(src_name)
+                else:
+                    logging.warning("✗ %s replied empty", src_name)
+            except Exception as e:
+                logging.warning("✗ %s unreachable: %s", src_name, e)
+        if reachable:
+            if attempt > 1:
+                logging.info("network recovered after %d attempt(s)", attempt)
+            return reachable
+        if attempt < retries:
+            logging.info("probe failed (attempt %d/%d), retry in %.1fs ...",
+                         attempt, retries, retry_wait)
+            time.sleep(retry_wait)
+    return []
 
 
 # ---------- DB upsert ----------
