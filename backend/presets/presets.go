@@ -11,6 +11,8 @@ func commonExcludes() []map[string]interface{} {
 	return []map[string]interface{}{
 		{"type": "is_st"},
 		{"type": "list_age_days_lt", "days": 60},
+		// 三日累计涨幅 > 25% 一律剔除（避免命中连续涨停的妖股）
+		{"type": "cumulative_change", "days": 3, "op": "gt", "max_pct": 25},
 	}
 }
 

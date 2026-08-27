@@ -281,6 +281,7 @@ func compileOne(c map[string]interface{}, idx int) (string, []interface{}, int, 
 
 	case "cumulative_change":
 		// days: 3 max_pct: 15  → (close(t) - close(t-N)) / close(t-N) * 100 <= max_pct
+		// op: 默认 lte；可显式写 gt/gte/lt/eq 用于 exclude
 		days, _ := numericArg(c["days"])
 		maxPct, ok := numericArg(c["max_pct"])
 		if !ok {
@@ -290,8 +291,16 @@ func compileOne(c map[string]interface{}, idx int) (string, []interface{}, int, 
 		if d < 1 {
 			d = 1
 		}
-		return fmt.Sprintf("ranked.close_lag%d IS NOT NULL AND ranked.close_lag%d > 0 AND ((latest.close - ranked.close_lag%d) / ranked.close_lag%d * 100) <= $%d",
-				d, d, d, d, idx),
+		op, _ := c["op"].(string)
+		if op == "" {
+			op = "lte"
+		}
+		opSQL, err := compareOp(op)
+		if err != nil {
+			return "", nil, 0, fmt.Errorf("cumulative_change: %w", err)
+		}
+		return fmt.Sprintf("ranked.close_lag%d IS NOT NULL AND ranked.close_lag%d > 0 AND ((latest.close - ranked.close_lag%d) / ranked.close_lag%d * 100) %s $%d",
+				d, d, d, d, opSQL, idx),
 			[]interface{}{maxPct}, 1, nil
 
 	// --- 突破 / 交叉 ---
