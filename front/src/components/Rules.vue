@@ -7,7 +7,10 @@
           <h2 class="title">规则管理</h2>
           <span class="sub">点击「执行」查看该规则的命中股票；卡片悬停可翻转看完整表达式</span>
         </div>
-        <el-button type="primary" @click="openCreate">+ 新增规则</el-button>
+        <div class="header-actions">
+          <el-button :loading="refreshing" @click="refreshTop3">🎯 刷新今日 Top 3</el-button>
+          <el-button type="primary" @click="openCreate">+ 新增规则</el-button>
+        </div>
       </div>
 
       <el-row v-if="rules.length" :gutter="12" class="cards-stage">
@@ -131,6 +134,7 @@ import {
   getRules, addRule, deleteRule, runRule,
 } from '@/utils/api/rules'
 import { ElMessage } from 'element-plus'
+import { finalPick } from '@/utils/api/screen'
 import { useCard3D } from '@/composables/useCard3D'
 import RuleEditor from '@/components/RuleEditor.vue'
 
@@ -140,6 +144,7 @@ const rules      = ref([])
 const newRule    = ref({ rule_name: '', expression: { all: [], exclude: [{ type: 'is_st' }] } })
 const createOpen = ref(false)
 const submitting = ref(false)
+const refreshing  = ref(false)
 const lastRunResults   = ref([])
 const lastRunRuleName  = ref('')
 const lastRunMsg       = ref('')
@@ -178,6 +183,22 @@ const getRules_ = async () => {
       rule_expressionStr: r.rule_expression ? JSON.stringify(r.rule_expression) : '{}',
     }))
   } catch (err) { ElMessage.error('获取规则失败') }
+}
+
+// 手动触发今日 Top 3 预计算（默认激进预设）
+const refreshTop3 = async () => {
+  refreshing.value = true
+  try {
+    const { data } = await finalPick([
+      'ma-trend','volume-price','ma-golden-cross','tech-bounce',
+      'limit-up-strong','high-position-breakout','boll-bounce','breakout-5d',
+    ], 3)
+    ElMessage.success(`Top 3 已刷新（${data.trade_date}，候选 ${data.candidates} 只）`)
+  } catch (e) {
+    ElMessage.error('刷新失败：' + (e?.message || e))
+  } finally {
+    refreshing.value = false
+  }
 }
 
 const openCreate = () => {
@@ -288,6 +309,7 @@ onMounted(getRules_)
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 12px;
 }
+.header-actions { display: flex; gap: 8px; }
 .title { margin: 0; }
 .sub  { color: #909399; font-size: 12px; margin-left: 8px; }
 

@@ -51,7 +51,7 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onBeforeUnmount, onMounted, computed } from 'vue'
+import { ref, watch, watchEffect, nextTick, onBeforeUnmount, onMounted, computed } from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 
@@ -70,6 +70,7 @@ const days = ref(90)
 const loading = ref(false)
 const chartEl = ref(null)
 let chart = null
+let loadingToken = 0   // 单飞：每次新 load 自增，旧的 await 直接放弃
 
 // 响应式宽度与字号
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1280)
@@ -117,25 +118,30 @@ function stockClass(s) {
 
 async function loadKLine() {
   if (!props.stock) return
+  const myToken = ++loadingToken
   loading.value = true
   try {
     const url = `/api/v1/stock-daily-data/${props.stock.symbol}/kline?days=${days.value}`
     const r = await fetch(url)
+    if (myToken !== loadingToken) return
     if (!r.ok) {
       ElMessage.error(`K 线接口 ${r.status}`)
       loading.value = false
       return
     }
     const data = await r.json()
+    if (myToken !== loadingToken) return
     render(data.candles || [])
   } catch (e) {
+    if (myToken !== loadingToken) return
     ElMessage.error(`加载 K 线失败：${e.message || e}`)
   } finally {
-    loading.value = false
+    if (myToken === loadingToken) loading.value = false
   }
 }
 
 function render(candles) {
+  if (!chartEl.value) return
   if (!chart) {
     chart = echarts.init(chartEl.value, null, { renderer: 'canvas' })
   }
@@ -333,16 +339,30 @@ function render(candles) {
   }, true)
 }
 
-watch(() => props.modelValue, async (v) => {
-  if (v) {
-    await nextTick()
-    if (!chart) chart = echarts.init(chartEl.value, null, { renderer: 'canvas' })
-    loadKLine()
-  } else if (chart) {
-    chart.clear()
+// 合并：modelValue=true OR stock?.symbol 变化时触发 load；close 时清场
+let prevSymbol = null
+watchEffect(async (onCleanup) => {
+  const isOpen = props.modelValue
+  const sym = props.stock?.symbol
+  if (!isOpen) {
+    loadingToken++
+    if (chart) { chart.dispose(); chart = null }  // destroy-on-close 时旧 chart 实例已无 DOM，必须 dispose
+    prevSymbol = null
+    return
   }
+  if (!sym || sym === prevSymbol) return  // 同一只股票不重复加载
+  prevSymbol = sym
+
+  onCleanup(() => { loadingToken++ })
+  await nextTick()
+  if (!chartEl.value) {
+    await new Promise(r => setTimeout(r, 50))
+  }
+  if (!chart && chartEl.value) {
+    chart = echarts.init(chartEl.value, null, { renderer: 'canvas' })
+  }
+  loadKLine()
 })
-watch(() => props.stock?.symbol, () => { if (visible.value) loadKLine() })
 watch(() => isMobile.value, () => { if (visible.value) loadKLine() })
 </script>
 

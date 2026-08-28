@@ -37,8 +37,13 @@ def calc_one(df: pd.DataFrame) -> pd.DataFrame:
         diff = df["close"].diff()
         gain = diff.clip(lower=0).rolling(n).mean()
         loss = (-diff.clip(upper=0)).rolling(n).mean()
-        rs = gain / loss.replace(0, np.nan)
-        df[f"rsi{n}"] = 100 - 100 / (1 + rs)
+        # RSI 标准定义：loss=0（连续 n 日全涨）→ RSI=100；gain=0（全跌）→ RSI=0
+        # 之前用 loss.replace(0, np.nan) 会让 RSI 变 NaN，再被 json 序列化失败
+        with np.errstate(divide='ignore', invalid='ignore'):
+            rsi = 100 - 100 / (1 + gain / loss)
+        rsi = rsi.where(loss != 0, 100)   # loss=0 时强制 100
+        rsi = rsi.where(~((loss == 0) & (gain == 0)), 50)  # 极罕见：n 日全平 → 50
+        df[f"rsi{n}"] = rsi
     std20 = df["close"].rolling(20).std()
     df["boll_mid"]   = df["ma20"]
     df["boll_upper"] = df["ma20"] + 2 * std20

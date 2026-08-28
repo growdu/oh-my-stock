@@ -101,7 +101,7 @@ const handleLogin = async () => {
       localStorage.setItem('user_id', res.data.user_id)
       localStorage.setItem('username', loginForm.value.username)
       ElMessage.success(loginForm.value.username+'登录成功')
-      router.push('/home')
+      router.push('/admin/rules')
     } catch (err) {
       ElMessage.error(err.response?.data?.error || '登录失败')
     }
@@ -127,7 +127,7 @@ const handleRegister = async () => {
 onMounted(() => {
   const token = localStorage.getItem('token')
   if (token) {
-    router.push('/home')
+    router.push('/admin/rules')
   }
 })
 </script>

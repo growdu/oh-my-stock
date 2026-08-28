@@ -1,5 +1,10 @@
 <template>
   <div class="page">
+    <div class="display-topbar">
+      <button class="topbar-btn" @click="$router.push('/')" aria-label="返回精选">‹ 返回精选</button>
+      <button v-if="loggedIn" class="topbar-btn admin" @click="$router.push('/admin/rules')">⚙ 规则管理</button>
+    </div>
+
     <!-- 单列堆叠交错的规则卡片 -->
     <div class="rules-section">
       <div class="rule-stack" @wheel.prevent="onWheel" @touchstart.passive="onTouchStart" @touchend.passive="onTouchEnd">
@@ -77,59 +82,15 @@
         </div>
 
       <div class="stocks-grid">
-        <div
+        <StockCard
           v-for="s in filteredRows"
           :key="s.symbol"
-          class="stock-card"
-          :class="stockClass(s)"
-          @click="openKLine(s)"
-          title="点击查看 K 线"
-        >
-          <!-- 头部：代码 + 名称 + 板型 + 涨跌标签 -->
-          <div class="card-header">
-            <span class="sym">{{ s.symbol }}</span>
-            <span class="name" :title="s.name">{{ s.name }}</span>
-            <el-tag size="small" effect="plain" class="market-tag" :class="boardTagClass(s)">{{ boardLabel(s) }}</el-tag>
-            <span class="rank-no">#{{ rows.indexOf(s) + 1 }}</span>
-          </div>
-
-          <div v-if="s.industry" class="card-industry">
-            <span class="ind-label">行业</span>{{ s.industry }}
-          </div>
-
-          <!-- 价格 -->
-          <div class="price-block" :class="stockClass(s)">
-            <span class="price">{{ fmt(s.close) }}</span>
-            <span class="pct">{{ pctArrow(s) }} {{ (s.change_percent ?? 0) >= 0 ? '+' : '' }}{{ fmt(s.change_percent) }}%</span>
-          </div>
-
-          <!-- 核心 4 项：净利润 / 营收增长 / 成交量 / MA5（含金叉死叉标）-->
-          <div class="core-grid">
-            <div class="core-cell">
-              <span class="core-label">净利润</span>
-              <b class="core-value" :class="s.net_profit_yoy != null ? yoyClass(s.net_profit_yoy) : ''">
-                {{ fmtYi(s.net_profit) }}
-                <small v-if="s.net_profit_yoy != null" class="core-sub">同比 {{ fmtPctSigned(s.net_profit_yoy) }}</small>
-              </b>
-            </div>
-            <div class="core-cell">
-              <span class="core-label">营收增长</span>
-              <b class="core-value" :class="yoyClass(s.revenue_yoy)">{{ fmtPctSigned(s.revenue_yoy) }}</b>
-            </div>
-            <div class="core-cell">
-              <span class="core-label">成交量</span>
-              <b class="core-value">{{ fmtVol(s.volume) }}</b>
-            </div>
-            <div class="core-cell">
-              <span class="core-label">MA5</span>
-              <b class="core-value" :class="maPosClass(s, 'ma5')">
-                {{ fmt(s.ma5) }}
-                <em v-if="maCross(s, 'ma5', 'ma10')" class="ts-flag gold">金叉</em>
-                <em v-else-if="maDeathCross(s, 'ma5', 'ma10')" class="ts-flag death">死叉</em>
-              </b>
-            </div>
-          </div>
-        </div>      </div>
+          :stock="s"
+          :rank="rows.indexOf(s) + 1"
+          clickable
+          @click="openKLine"
+        />
+      </div>
 
       <KLineDialog v-model="klineOpen" :stock="klineStock" />
 
@@ -149,11 +110,16 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { listPresets } from '@/utils/api/presets'
 import { ElMessage } from 'element-plus'
 
 import { usePresetCache } from '@/composables/usePresetCache'
 import KLineDialog from '@/components/KLineDialog.vue'
+import StockCard from '@/components/StockCard.vue'
+
+const router = useRouter()
+const loggedIn = ref(!!localStorage.getItem('token'))
 
 
 const { cache, fetchPage, preloadAll, invalidate } = usePresetCache(8)
@@ -478,6 +444,26 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.display-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+}
+.topbar-btn {
+  background: transparent;
+  border: 1px solid #dcdfe6;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #606266;
+}
+.topbar-btn:hover { background: #f5f7fa; border-color: #409eff; color: #409eff; }
+.topbar-btn.admin { color: #e6a23c; border-color: #faecd8; margin-left: auto; }
+.topbar-btn.admin:hover { background: #fdf6ec; border-color: #e6a23c; color: #e6a23c; }
+
+
 /* =========================================================
    配色方案（红色主题，呼应 A 股"红涨绿跌"惯例）
    - 主色：涨 #e63946 / 跌 #16a34a

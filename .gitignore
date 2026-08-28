@@ -20,3 +20,11 @@ scripts/*.py.tmp
 
 # 部署产物
 deploy/*.tar.gz
+
+# 运行时日志目录
+backend/logs/
+scripts/logs/
+
+# 本地测试截图
+cache/picker*.png
+cache/admin_rules.png

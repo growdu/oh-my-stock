@@ -25,8 +25,9 @@
 | 路径 | 组件 | 用途 |
 |---|---|---|
 | `/` | `pages/Display.vue` | 公开主页：单列堆叠规则 + 命中股票 + 技术指标条 + 行业筛选 + K 线弹窗 |
+| `/` | `pages/Picker.vue` | **首页**：进阶精选 Top 3（评分 + 历史） |
+| `/display` | `pages/Display.vue` | 全部预设 + 命中股票网格（公开） |
 | `/admin/login` | `pages/LoginPage.vue` | 登录 |
-| `/admin/results` | `pages/Results.vue` | 管理后台的展示页（carousel 旧版布局，保留作为兜底） |
 | `/admin/rules` | `components/Rules.vue` | 自定义规则管理 + 可视化编辑器 |
 
 已删除（与最初设计一致）：

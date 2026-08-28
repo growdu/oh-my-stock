@@ -110,6 +110,17 @@ else
     echo "⏭  跳过物化视图 (--skip-mv)"
 fi
 
+# 5) 进阶精选 Top 3 预计算（落库 final_picks，给前端首页用）
+if [[ $SKIP_FETCH -eq 0 ]] && [[ -f "$SCRIPT_DIR/precompute_picks.sh" ]]; then
+    echo ""
+    echo "▶▶▶ [$(stamp)] 进阶精选 Top 3 预计算 — precompute_picks.sh"
+    if bash "$SCRIPT_DIR/precompute_picks.sh"; then
+        echo "✅ [$(stamp)] 进阶精选预计算完成"
+    else
+        echo "⚠️  [$(stamp)] 进阶精选预计算失败（非阻塞，继续）"
+    fi
+fi
+
 T1=$(date +%s)
 echo ""
 echo "=========================================="

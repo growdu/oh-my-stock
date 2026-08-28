@@ -52,6 +52,7 @@ type RunResult struct {
 	DIFPrev    float64 `json:"dif_prev"`
 	DEAPrev    float64 `json:"dea_prev"`
 	MfChangePct float64 `json:"mf_change_percent"`
+	CloseLag3    float64 `json:"close_lag3"`
 
 	// 财报快照（最新一期）：净利润 / 净利同比 / 营收同比
 	// 用 *float64 让前端能区分"无数据"与"0"
@@ -155,6 +156,7 @@ SELECT
   COALESCE(latest.ma5_lag1, 0)  AS ma5_prev,
   COALESCE(latest.ma10_lag1, 0) AS ma10_prev,
   COALESCE(latest.ma20_lag1, 0) AS ma20_prev,
+  COALESCE(latest.close_lag3, 0) AS close_lag3,
   COALESCE(latest.macd, 0)      AS macd,
   COALESCE(latest.dif, 0)       AS dif,
   COALESCE(latest.dea, 0)       AS dea,

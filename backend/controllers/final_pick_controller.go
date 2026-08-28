@@ -1,14 +1,18 @@
 package controllers
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
 	"oh-my-stock/config"
+	"oh-my-stock/models"
 	"oh-my-stock/presets"
 )
 
@@ -53,6 +57,7 @@ type PickStock struct {
 	MA20          float64  `json:"ma20"`
 	MA60          float64  `json:"ma60"`
 	MA5Prev       float64  `json:"ma5_prev"`
+	CloseLag3     float64  `json:"close_lag3"`
 	MACD          float64  `json:"macd"`
 	DIF           float64  `json:"dif"`
 	DEA           float64  `json:"dea"`
@@ -64,6 +69,7 @@ type PickStock struct {
 	BollUpper     float64  `json:"boll_upper"`
 	BollMid       float64  `json:"boll_mid"`
 	BollLower     float64  `json:"boll_lower"`
+	NetProfit     *float64 `json:"net_profit,omitempty"`
 	NetProfitYoy  *float64 `json:"net_profit_yoy,omitempty"`
 	RevenueYoy    *float64 `json:"revenue_yoy,omitempty"`
 }
@@ -180,9 +186,15 @@ func scoreOne(s presets.RunResult) (int, ScoreBreakdown, bool) {
 	}
 
 	// ---- 减分项 ----
-	// 3 日累计涨幅 20~25%：已经在 commonExcludes 排掉 >25%；20~25 是 -3
-	if s.MA5Prev > 0 && s.MA10Prev > 0 { // 仅作占位：3 日涨幅在 MV 里有 close_lag3 但 RunResult 未带
-		// 暂时跳过精确计算；后续如要加需扩展 RunResult 加 close_lag3
+	// 3 日累计涨幅 20~30% 减分（防追高）：close_lag3 是 3 日前收盘
+	if s.Close > 0 && s.CloseLag3 > 0 {
+		cum3 := (s.Close - s.CloseLag3) / s.CloseLag3 * 100
+		switch {
+		case cum3 >= 20 && cum3 <= 25:
+			b.Penalty -= 3
+		case cum3 > 25 && cum3 <= 30:
+			b.Penalty -= 6 // >25 应当被预设层排除，兜底再减
+		}
 	}
 
 	// PE > 200（妖股高估值）
@@ -280,6 +292,7 @@ func FinalPick(c *gin.Context) {
 					BollUpper:      h.BollUpper,
 					BollMid:        h.BollMid,
 					BollLower:      h.BollLower,
+					NetProfit:      h.NetProfit,
 					NetProfitYoy:   h.NetProfitYoy,
 					RevenueYoy:     h.RevenueYoy,
 				}
@@ -311,24 +324,31 @@ func FinalPick(c *gin.Context) {
 		}
 		// 关联 DIF/DEA 前一日（用于判金叉）
 		var lagRows []struct {
-			Symbol  string
-			DIFPrev float64
-			DEAPrev float64
+			Symbol    string
+			DIFPrev   float64
+			DEAPrev   float64
+			CloseLag3 float64
 		}
-		config.DB.Raw(`
-			SELECT symbol, dif_lag1, dea_lag1
-			FROM stock_history_mv
-			WHERE trade_date = ?
-		`, tradeDate).Scan(&lagRows)
-		lagMap := map[string][2]float64{}
+		if err := config.DB.Raw(`
+			SELECT symbol,
+			       COALESCE(dif_lag1, 0)   AS dif_prev,
+			       COALESCE(dea_lag1, 0)   AS dea_prev,
+			       COALESCE(close_lag3, 0) AS close_lag3
+			FROM stock_indicators
+			WHERE calc_date = ?
+		`, tradeDate).Scan(&lagRows).Error; err != nil {
+			fmt.Fprintf(gin.DefaultErrorWriter, "final-pick lag query: %v\n", err)
+		}
+		lagMap := map[string][3]float64{}
 		for _, r := range lagRows {
-			lagMap[r.Symbol] = [2]float64{r.DIFPrev, r.DEAPrev}
+			lagMap[r.Symbol] = [3]float64{r.DIFPrev, r.DEAPrev, r.CloseLag3}
 		}
 		for sym, p := range picks {
 			p.MfChangePct = mfMap[sym]
 			if v, ok := lagMap[sym]; ok {
 				p.DIFPrev = v[0]
 				p.DEAPrev = v[1]
+				p.CloseLag3 = v[2]
 			}
 		}
 	}
@@ -354,7 +374,7 @@ func FinalPick(c *gin.Context) {
 			DIFPrev:       p.DIFPrev, DEAPrev: p.DEAPrev,
 			K:             p.K, J: p.J, RSI6: p.RSI6,
 			BollUpper:     p.BollUpper, BollMid: p.BollMid, BollLower: p.BollLower,
-			NetProfitYoy:  p.NetProfitYoy, RevenueYoy: p.RevenueYoy,
+			NetProfit:     p.NetProfit, NetProfitYoy: p.NetProfitYoy, RevenueYoy: p.RevenueYoy,
 		}
 		score, breakdown, ok := scoreOne(rr)
 		if !ok {
@@ -421,12 +441,295 @@ func FinalPick(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, FinalPickResponse{
+	// 4.5) 落库（按 trade_date + symbol upsert，覆盖同日重跑）
+		if err := saveFinalPicks(tradeDate, final); err != nil {
+			// 不影响返回结果，仅日志
+			fmt.Fprintf(gin.DefaultErrorWriter, "saveFinalPicks: %v\n", err)
+		}
+
+		c.JSON(http.StatusOK, FinalPickResponse{
 		TradeDate:  tradeDate,
 		TopN:       req.TopN,
 		Candidates: len(picks),
 		Scored:     len(scored),
 		Picks:      final,
+	})
+}
+
+var _ = gorm.ErrRecordNotFound // 占位，避免 import 报错
+
+
+// ---------- 落库 ----------
+
+func saveFinalPicks(tradeDate string, picks []PickStock) error {
+	if len(picks) == 0 {
+		return nil
+	}
+	td, err := time.Parse("2006-01-02", tradeDate)
+	if err != nil {
+		return fmt.Errorf("parse trade_date: %w", err)
+	}
+	for _, p := range picks {
+		bd, _ := json.Marshal(p.Breakdown)
+		matched, _ := json.Marshal(p.MatchedPresets)
+		row := models.FinalPick{
+			TradeDate: td,
+			Rank:      0, // 后面再写
+			Symbol:    p.Symbol,
+			Name:      p.Name,
+			Industry:  p.Industry,
+			Market:    p.Market,
+			Score:     p.Score,
+			Breakdown: string(bd),
+			Matched:   string(matched),
+		}
+		// upsert：ON CONFLICT (trade_date, symbol) DO UPDATE
+		err := config.DB.Exec(`
+			INSERT INTO final_picks
+				(trade_date, rank, symbol, name, industry, market, score, breakdown, matched, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, CURRENT_TIMESTAMP)
+			ON CONFLICT (trade_date, symbol) DO UPDATE SET
+				rank      = EXCLUDED.rank,
+				name      = EXCLUDED.name,
+				industry  = EXCLUDED.industry,
+				market    = EXCLUDED.market,
+				score     = EXCLUDED.score,
+				breakdown = EXCLUDED.breakdown,
+				matched   = EXCLUDED.matched,
+				created_at = CURRENT_TIMESTAMP
+		`, td, 0, row.Symbol, row.Name, row.Industry, row.Market, row.Score, row.Breakdown, row.Matched).Error
+		if err != nil {
+			return fmt.Errorf("upsert %s: %w", row.Symbol, err)
+		}
+	}
+	// 回写 rank（按 score DESC）
+	for i, p := range picks {
+		rank := i + 1
+		if err := config.DB.Exec(
+			`UPDATE final_picks SET rank = ? WHERE trade_date = ? AND symbol = ?`,
+			rank, td, p.Symbol,
+		).Error; err != nil {
+			return fmt.Errorf("update rank %s: %w", p.Symbol, err)
+		}
+	}
+	return nil
+}
+
+// ---------- History 接口 ----------
+
+// FinalPickHistoryItem 历史精选的展示行
+type FinalPickHistoryItem struct {
+	TradeDate     string         `json:"trade_date"`
+	Rank          int            `json:"rank"`
+	Symbol        string         `json:"symbol"`
+	Name          string         `json:"name"`
+	Industry      string         `json:"industry"`
+	Market        string         `json:"market"`
+	Score         int            `json:"score"`
+	Breakdown     ScoreBreakdown `json:"breakdown"`
+	MatchedPresets []string      `json:"matched_presets"`
+	Close         float64        `json:"close"`
+	ChangePercent float64        `json:"change_percent"`
+	Volume        float64        `json:"volume"`
+	MA5           float64        `json:"ma5"`
+	MA10          float64        `json:"ma10"`
+	MA5Prev       float64        `json:"ma5_prev"`
+}
+
+// FinalPickHistoryResponse 返回 N 天的精选历史（按日期降序）
+type FinalPickHistoryResponse struct {
+	Days  int                     `json:"days"`
+	Total int                     `json:"total"`
+	Items []FinalPickHistoryItem  `json:"items"`
+}
+
+// FinalPickLatest GET /screen/final-pick/latest
+// 返回 final_picks 表里最新交易日的 Top N 缓存结果（不重新计算）
+// 用于首页展示：每日数据刷新后预算一次，前端只读
+func FinalPickLatest(c *gin.Context) {
+	type row struct {
+		TradeDate     time.Time
+		Rank          int
+		Symbol        string
+		Name          string
+		Industry      string
+		Market        string
+		Score         int
+		Breakdown     string
+		Matched       string
+		Close         float64
+		ChangePercent float64
+		Volume        float64
+		MA5           float64
+		MA10          float64
+		MA5Prev       float64
+		CreatedAt     time.Time
+		NetProfit     *float64
+		NetProfitYoy  *float64
+		RevenueYoy    *float64
+	}
+	var rows []row
+	err := config.DB.Raw(`
+		SELECT fp.trade_date, fp.rank, fp.symbol, fp.name, fp.industry, fp.market,
+		       fp.score, fp.breakdown, fp.matched,
+		       COALESCE(mv.close, 0)          AS close,
+		       COALESCE(mv.change_percent, 0) AS change_percent,
+		       COALESCE(mv.volume, 0)         AS volume,
+		       COALESCE(mv.ma5, 0)            AS ma5,
+		       COALESCE(mv.ma10, 0)           AS ma10,
+		       COALESCE(ind.ma5_lag1, 0)      AS ma5_prev,
+		       fp.created_at                  AS created_at,
+		       fin.net_profit                 AS net_profit,
+		       fin.net_profit_yoy             AS net_profit_yoy,
+		       fin.revenue_yoy                AS revenue_yoy
+		FROM final_picks fp
+		LEFT JOIN stock_history_mv mv
+		  ON mv.symbol = fp.symbol AND mv.trade_date = fp.trade_date
+		LEFT JOIN stock_indicators ind
+		  ON ind.symbol = fp.symbol AND ind.calc_date = fp.trade_date
+		LEFT JOIN LATERAL (
+		    SELECT net_profit, net_profit_yoy, revenue_yoy
+		    FROM stock_financial_data
+		    WHERE symbol = fp.symbol
+		    ORDER BY report_date DESC
+		    LIMIT 1
+		) fin ON TRUE
+		WHERE fp.trade_date = (SELECT MAX(trade_date) FROM final_picks)
+		ORDER BY fp.rank ASC
+	`).Scan(&rows).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "latest: " + err.Error()})
+		return
+	}
+	if len(rows) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"trade_date":  "",
+			"top_n":       0,
+			"candidates":  0,
+			"scored":      0,
+			"picks":       []PickStock{},
+			"cached":      false,
+			"updated_at":  "",
+		})
+		return
+	}
+
+	items := make([]PickStock, 0, len(rows))
+	var tradeDate string
+	var updatedAt string
+	for _, r := range rows {
+		var bd ScoreBreakdown
+		_ = json.Unmarshal([]byte(r.Breakdown), &bd)
+		var matched []string
+		_ = json.Unmarshal([]byte(r.Matched), &matched)
+		items = append(items, PickStock{
+			Symbol:         r.Symbol,
+			Name:           r.Name,
+			Industry:       r.Industry,
+			Market:         r.Market,
+			TradeDate:      r.TradeDate.Format("2006-01-02"),
+			Score:          r.Score,
+			Breakdown:      bd,
+			MatchedPresets: matched,
+			Close:          r.Close,
+			ChangePercent:  r.ChangePercent,
+			MA5:            r.MA5,
+			MA10:           r.MA10,
+			MA5Prev:        r.MA5Prev,
+			NetProfit:      r.NetProfit,
+			NetProfitYoy:   r.NetProfitYoy,
+			RevenueYoy:     r.RevenueYoy,
+		})
+		tradeDate = r.TradeDate.Format("2006-01-02")
+		updatedAt = r.CreatedAt.Format("2006-01-02 15:04:05")
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"trade_date": tradeDate,
+		"top_n":      len(items),
+		"candidates": len(items),
+		"scored":     len(items),
+		"picks":      items,
+		"cached":     true,
+		"updated_at": updatedAt,
+	})
+}
+
+// FinalPickHistory GET /screen/final-pick/history?days=7
+func FinalPickHistory(c *gin.Context) {
+	days := 7
+	if v := c.Query("days"); v != "" {
+		if d, err := strconv.Atoi(v); err == nil && d > 0 && d <= 60 {
+			days = d
+		}
+	}
+	type row struct {
+		TradeDate     time.Time
+		Rank          int
+		Symbol        string
+		Name          string
+		Industry      string
+		Market        string
+		Score         int
+		Breakdown     string
+		Matched       string
+		Close         float64
+		ChangePercent float64
+		Volume        float64
+		MA5           float64
+		MA10          float64
+		MA5Prev       float64
+	}
+	var rows []row
+	err := config.DB.Raw(`
+		SELECT fp.trade_date, fp.rank, fp.symbol, fp.name, fp.industry, fp.market,
+		       fp.score, fp.breakdown, fp.matched,
+		       COALESCE(mv.close, 0)          AS close,
+		       COALESCE(mv.change_percent, 0) AS change_percent,
+		       COALESCE(mv.volume, 0)         AS volume,
+		       COALESCE(mv.ma5, 0)            AS ma5,
+		       COALESCE(mv.ma10, 0)           AS ma10,
+		       COALESCE(ind.ma5_lag1, 0)      AS ma5_prev
+		FROM final_picks fp
+		LEFT JOIN stock_history_mv mv
+		  ON mv.symbol = fp.symbol AND mv.trade_date = fp.trade_date
+		LEFT JOIN stock_indicators ind
+		  ON ind.symbol = fp.symbol AND ind.calc_date = fp.trade_date
+		WHERE fp.trade_date >= (CURRENT_DATE - (? || ' days')::interval)
+		ORDER BY fp.trade_date DESC, fp.rank ASC
+	`, strconv.Itoa(days)).Scan(&rows).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "history: " + err.Error()})
+		return
+	}
+	items := make([]FinalPickHistoryItem, 0, len(rows))
+	for _, r := range rows {
+		var bd ScoreBreakdown
+		_ = json.Unmarshal([]byte(r.Breakdown), &bd)
+		var matched []string
+		_ = json.Unmarshal([]byte(r.Matched), &matched)
+		items = append(items, FinalPickHistoryItem{
+			TradeDate:     r.TradeDate.Format("2006-01-02"),
+			Rank:          r.Rank,
+			Symbol:        r.Symbol,
+			Name:          r.Name,
+			Industry:      r.Industry,
+			Market:        r.Market,
+			Score:         r.Score,
+			Breakdown:     bd,
+			MatchedPresets: matched,
+			Close:         r.Close,
+			ChangePercent: r.ChangePercent,
+			Volume:        r.Volume,
+			MA5:           r.MA5,
+			MA10:          r.MA10,
+			MA5Prev:       r.MA5Prev,
+		})
+	}
+	c.JSON(http.StatusOK, FinalPickHistoryResponse{
+		Days:  days,
+		Total: len(items),
+		Items: items,
 	})
 }
 

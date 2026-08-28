@@ -19,10 +19,27 @@
 
 | 路径 | 用途 | 鉴权 |
 |---|---|---|
-| `/` | 公开展示页：14 个预设单列堆叠 + 命中股票网格（带技术指标 + 行业筛选 + K线弹窗） | 公开 |
+| `/` | **首页**：每日精选 Top 3（缓存读取，每日 17:00 自动预算一次） | 公开 |
+| `/display` | 全部 14 条预设 + 命中股票网格（带技术指标 + 行业筛选 + K 线弹窗） | 公开 |
 | `/admin/login` | 管理后台登录 | 公开 |
-| `/admin/results` | 管理后台的展示页（与 `/` 视图基本一致） | JWT |
 | `/admin/rules` | 自定义规则管理：可视化编辑 + 立即执行 | JWT |
+
+### 精选数据流（首页 Top 3）
+
+```
+每日 17:00  daily_refresh.sh
+  ├── fetch_daily.py / money_flow / indicators / MV
+  └── precompute_picks.sh  ─── POST /screen/final-pick ──→ 落库 final_picks 表
+                                                                │
+普通用户访问 /  ──→ GET /screen/final-pick/latest ──→ 直接读表 ──┘
+                        (毫秒返回，不计算)
+```
+
+- `GET /api/v1/screen/final-pick/latest` —— 读缓存（首页用）
+- `POST /api/v1/screen/final-pick` —— 触发计算 + 落库（管理员手动重算 / 预计算脚本）
+- `GET /api/v1/screen/final-pick/history?days=N` —— 历史精选落库记录
+
+手动触发今日精选：`bash scripts/precompute_picks.sh`
 
 ## 快速开始（Docker）
 

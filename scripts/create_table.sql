@@ -344,3 +344,24 @@ END $$;
 -- ============================================================
 ALTER TABLE stock_financial_data ADD COLUMN IF NOT EXISTS net_profit_yoy DECIMAL(10,4);
 ALTER TABLE stock_financial_data ADD COLUMN IF NOT EXISTS revenue_yoy    DECIMAL(10,4);
+
+
+-- ============================================================
+-- 12. 进阶精选 Top N 落库（每日精选结果留存，便于回看）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS final_picks (
+    id          BIGSERIAL PRIMARY KEY,
+    trade_date  DATE        NOT NULL,
+    rank        INT         NOT NULL,                 -- 1 / 2 / 3
+    symbol      VARCHAR(10) NOT NULL,
+    name        VARCHAR(50) NOT NULL,
+    industry    VARCHAR(50),
+    market      VARCHAR(20),
+    score       INT         NOT NULL,
+    breakdown   JSONB       NOT NULL,                 -- 6 维明细
+    matched     TEXT        NOT NULL DEFAULT '[]',    -- 命中的预设 id
+    created_at  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_final_picks UNIQUE (trade_date, symbol)
+);
+CREATE INDEX IF NOT EXISTS idx_final_picks_date ON final_picks(trade_date DESC);
+CREATE INDEX IF NOT EXISTS idx_final_picks_symbol ON final_picks(symbol);

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"math"
 	"context"
 	"fmt"
 	"log"
@@ -67,6 +68,25 @@ func GetStockDailyData(c *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {string} string "Bad Request"
 // @Router /stock-daily-data/{symbol}/kline [get]
+// sanitizeF 把 math.NaN() / Inf 替换为 0（防止 json 编码失败）
+func sanitizeF(v float64) float64 {
+	if math.IsNaN(v) || math.IsInf(v, 0) {
+		return 0
+	}
+	return v
+}
+
+// sanitizeP 把 *float64 中的 NaN / Inf 替换为 nil
+func sanitizeP(p *float64) *float64 {
+	if p == nil {
+		return nil
+	}
+	if math.IsNaN(*p) || math.IsInf(*p, 0) {
+		return nil
+	}
+	return p
+}
+
 func GetStockKLine(c *gin.Context) {
 	symbol := c.Param("symbol")
 	daysStr := c.DefaultQuery("days", "90")
@@ -142,7 +162,7 @@ func GetStockKLine(c *gin.Context) {
 	candles := make([]Candle, 0, len(rows))
 	closes := make([]float64, 0, len(rows))
 	for _, r := range rows {
-		closes = append(closes, r.Close)
+		closes = append(closes, sanitizeF(r.Close))
 	}
 	for idx, r := range rows {
 		var avg5 float64
@@ -161,16 +181,16 @@ func GetStockKLine(c *gin.Context) {
 			TurnoverRate:  r.TurnoverRate,
 			Avg5:          avg5,
 		}
-		if r.Ma5 != nil  { c.Ma5  = *r.Ma5 }
-		if r.Ma10 != nil { c.Ma10 = *r.Ma10 }
-		if r.Ma20 != nil { c.Ma20 = *r.Ma20 }
-		if r.Macd != nil { c.Macd = *r.Macd }
-		if r.Dif  != nil { c.Dif  = *r.Dif }
-		if r.Dea  != nil { c.Dea  = *r.Dea }
-		if r.KdjK != nil { c.KdjK = *r.KdjK }
-		if r.KdjD != nil { c.KdjD = *r.KdjD }
-		if r.KdjJ != nil { c.KdjJ = *r.KdjJ }
-		if r.Rsi6 != nil { c.Rsi6 = *r.Rsi6 }
+		if v := sanitizeP(r.Ma5);  v != nil { c.Ma5  = *v }
+		if v := sanitizeP(r.Ma10); v != nil { c.Ma10 = *v }
+		if v := sanitizeP(r.Ma20); v != nil { c.Ma20 = *v }
+		if v := sanitizeP(r.Macd); v != nil { c.Macd = *v }
+		if v := sanitizeP(r.Dif);  v != nil { c.Dif  = *v }
+		if v := sanitizeP(r.Dea);  v != nil { c.Dea  = *v }
+		if v := sanitizeP(r.KdjK); v != nil { c.KdjK = *v }
+		if v := sanitizeP(r.KdjD); v != nil { c.KdjD = *v }
+		if v := sanitizeP(r.KdjJ); v != nil { c.KdjJ = *v }
+		if v := sanitizeP(r.Rsi6); v != nil { c.Rsi6 = *v }
 		candles = append(candles, c)
 	}
 
